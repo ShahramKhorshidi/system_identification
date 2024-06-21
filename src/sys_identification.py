@@ -4,7 +4,7 @@ from pathlib import Path
 from numpy.linalg import pinv
 
 
-class SystemIdentification():
+class SystemIdentification(object):
     def __init__(self, urdf_filename, floating_base, viz=None):
         # Creat robot model and data
         self._floating_base = floating_base
@@ -20,6 +20,9 @@ class SystemIdentification():
         # Dimensions of robot confgiuration space and velocity vector
         self.nq = self._rmodel.nq
         self.nv = self._rmodel.nv
+        if floating_base:
+            self._S = np.zeros((self.nv-6, self.nv)) # Selection matrix
+            self._S[:, 6:] = np.eye(self.nv-6)
         
         # Initialize the regressor matrix with proper dimension
         # For now only considering 10 inertial parameters for each link
@@ -79,14 +82,14 @@ class SystemIdentification():
                          [0     , 0     , vec[0], 0     , vec[1], vec[2]]])
     
     def _update_fk(self, q, dq, ddq):
+        # Update the forward kinematics of the robot
         pin.forwardKinematics(self._rmodel, self._rdata, q, dq, ddq)
         pin.framesForwardKinematics(self._rmodel, self._rdata, q)
         pin.computeJointJacobians(self._rmodel, self._rdata, q)
     
     def _compute_J_c(self, q, contact_scedule):
-        # Returns Jacobian of m feet in contact, dim(3*m,18)
-        self._update_fk(q)
-        m = np.sum(contact_scedule)
+        # Returns the jacobian of m feet in contact, dim(3*m,18)
+        m = int(np.sum(contact_scedule))
         J_c = np.zeros((3 * m, self.nv))
         j = 0
         for index in range(self._nb_ee):
@@ -144,11 +147,8 @@ class SystemIdentification():
         Y[3:6, 4:10] = self._braket_operator(alpha) + self._cross_operator(omega) @ self._braket_operator(omega) 
         return Y
     
-    def compute_regressor_matrix(self, q, dq, ddq):
-        # Returns the global regressor matrix
-        # Forward kinematics
-        self._update_fk(q, dq, ddq)
-        
+    def _compute_regressor_matrix(self, q, dq, ddq):
+        # Returns the global regressor matrix        
         # Compute the indivdual regressors
         ind_regressors = dict()
         spatial_velocities, spatial_accelerations = self._compute_spatial_vel_acc()
@@ -192,24 +192,36 @@ class SystemIdentification():
         
         return self._Y
 
-    def get_regressor_pin(self, q, dq, ddq):
+    def get_projected_llsq_roblem(self,q, dq, ddq, tau, contact_scedule):
+        # Returns the regressor matrix and joint torque vector projected into the null space of contacts
+        self._update_fk(q, dq, ddq)
+        Y = self._compute_regressor_matrix(q, dq, ddq)
+        P = self._compute_null_space_proj(q, contact_scedule)
+        Y_proj = P @ Y
+        tau_proj = P @ self._S.T @ tau
+        return Y_proj, tau_proj
+    
+    def get_regressor_pin(self, q, dq, ddq, tau, contact_scedule):
         # For validation with pinocchio
-        y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
-        tau = pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
-        return y, tau
+        self._update_fk(q, dq, ddq)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        P = self._compute_null_space_proj(q, contact_scedule)
+        return P@Y, P@self._S.T@tau
 
 
 if __name__ == "__main__":
     cur_dir = Path.cwd()
-    robot_urdf = cur_dir/"urdf"/"2dof_plannar_robot.urdf"
-    robot_sys_iden = SystemIdentification(str(robot_urdf), floating_base=False)
+    robot_urdf = cur_dir/"urdf"/"solo12.urdf"
+    robot_sys_iden = SystemIdentification(str(robot_urdf), floating_base=True)
     
-    robot_q = pin.randomConfiguration(robot_sys_iden._rmodel)
+    # robot_q = pin.randomConfiguration(robot_sys_iden._rmodel)
+    robot_q = np.random.rand(robot_sys_iden.nq)
     robot_dq = np.random.rand(robot_sys_iden.nv)
     robot_ddq = np.random.rand(robot_sys_iden.nv)
+    robot_tau = np.random.rand(robot_sys_iden.nv-6)
+    contact_config  = np.array([1, 1, 1, 1])
     
-    regressor = robot_sys_iden.compute_regressor_matrix(robot_q, robot_dq, robot_ddq)
-    print("#### Computed Regressor ####\n", regressor)
-    
-    y, tau = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq)
+    # regressor = robot_sys_iden.compute_regressor_matrix(robot_q, robot_dq, robot_ddq)
+    # print("#### Computed Regressor ####\n", regressor)
+    y, tau = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq, robot_tau, contact_config)
     print("#### Pinocchio #### \n",y)
