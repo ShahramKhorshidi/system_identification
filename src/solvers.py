@@ -30,12 +30,16 @@ class Solvers(object):
         A_psudo = VT.T @ Sigma_inv @ U.T
         return A_psudo@self.b
     
-    def wighted_llsq(self, weights):
+    def wighted_llsq(self, weights=None):
         """
         Solve weighted least squares using cvxpy.
         """
+        if weights is None:
+            weights = np.ones(self.A.shape[0])
+        
         # Define the weighted least squares objective function
-        self.objective = cp.Minimize(cp.sum_squares(cp.multiply(weights, self.A @ self.x - self.b)))
+        residuals = self.A @ self.x - self.b
+        self.objective = cp.Minimize(cp.sum_squares(cp.multiply(weights, residuals)))
         self.problem = cp.Problem(self.objective)
         self.problem.solve()
         return self.x.value
