@@ -99,7 +99,7 @@ class SystemIdentification(object):
                 j += 3
         return J_c
     
-    def _compute_null_space_proj(self, q, contact_scedule):
+    def _compute_null_space_proj(self, contact_scedule):
         # Returns null space projector, dim(18, 18)
         J_c = self._compute_J_c(contact_scedule)
         p = np.eye((self.nv)) - pinv(J_c) @ J_c
@@ -205,7 +205,7 @@ class SystemIdentification(object):
         # For validation with pinocchio
         self._update_fk(q, dq, ddq)
         Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
-        P = self._compute_null_space_proj(q, contact_scedule)
+        P = self._compute_null_space_proj(contact_scedule)
         return P@Y, P@self._S.T@tau
 
 
