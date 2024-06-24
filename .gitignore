@@ -12,3 +12,7 @@ data
 # Other files #
 ##################
 *.vscode
+
+# Setup files #
+##################
+*.bash
