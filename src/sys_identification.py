@@ -41,7 +41,7 @@ class SystemIdentification(object):
         self._nb_ee = len(self._end_eff_frame_names)
         
         self._init_motion_subspace_dict()
-        self._show_kinematic_tree()
+        # self._show_kinematic_tree()
     
     def _show_kinematic_tree(self):
         print("##### Kinematic Tree #####")
@@ -87,7 +87,7 @@ class SystemIdentification(object):
         pin.framesForwardKinematics(self._rmodel, self._rdata, q)
         pin.computeJointJacobians(self._rmodel, self._rdata, q)
     
-    def _compute_J_c(self, q, contact_scedule):
+    def _compute_J_c(self, contact_scedule):
         # Returns the jacobian of m feet in contact, dim(3*m,18)
         m = int(np.sum(contact_scedule))
         J_c = np.zeros((3 * m, self.nv))
@@ -101,7 +101,7 @@ class SystemIdentification(object):
     
     def _compute_null_space_proj(self, q, contact_scedule):
         # Returns null space projector, dim(18, 18)
-        J_c = self._compute_J_c(q, contact_scedule)
+        J_c = self._compute_J_c(contact_scedule)
         p = np.eye((self.nv)) - pinv(J_c) @ J_c
         return p
     
