@@ -33,7 +33,8 @@ class SystemIdentification(object):
         
         # List of the end_effector names
         # TODO: Later put all changing parameters in a separate yaml config file
-        self._end_eff_frame_names = ["HL_ANKLE", "HR_ANKLE", "FL_ANKLE", "FR_ANKLE"]
+        # self._end_eff_frame_names = ["HL_ANKLE", "HR_ANKLE", "FL_ANKLE", "FR_ANKLE"]
+        self._end_eff_frame_names = ["front_left_lower_leg", "front_right_lower_leg", "rear_left_lower_leg", "rear_right_lower_leg"]
         self._endeff_ids = [
             self._rmodel.getFrameId(name)
             for name in self._end_eff_frame_names
