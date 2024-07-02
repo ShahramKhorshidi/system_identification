@@ -20,16 +20,20 @@ class SystemIdentification(object):
         # Dimensions of robot confgiuration space and velocity vector
         self.nq = self._rmodel.nq
         self.nv = self._rmodel.nv
+        
+        # Selection matrix
         if floating_base:
-            self._S = np.zeros((self.nv-6, self.nv)) # Selection matrix
+            self._S = np.zeros((self.nv-6, self.nv))
             self._S[:, 6:] = np.eye(self.nv-6)
+        else:
+            self._S = np.eye(self.nv)
         
         # Initialize the regressor matrix with proper dimension
         # For now only considering 10 inertial parameters for each link
         # [m h_x h_y h_z I_xx I_xy I_xz I_yy I_yz I_zz]
-        self._num_inertial_prameters = 10
+        self._num_inertial_param = 10
         self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
-        self._Y = np.zeros((self.nv, self._num_inertial_prameters * self._num_links), dtype=np.float32)
+        self._Y = np.zeros((self.nv, self._num_inertial_param * self._num_links), dtype=np.float32)
         
         # List of the end_effector names
         # TODO: Later put all changing parameters in a separate yaml config file
@@ -41,7 +45,7 @@ class SystemIdentification(object):
         self._nb_ee = len(self._end_eff_frame_names)
         
         self._init_motion_subspace_dict()
-        # self._show_kinematic_tree()
+        self._show_kinematic_tree()
     
     def _show_kinematic_tree(self):
         print("##### Kinematic Tree #####")
@@ -147,8 +151,10 @@ class SystemIdentification(object):
         Y[3:6, 4:10] = self._braket_operator(alpha) + self._cross_operator(omega) @ self._braket_operator(omega) 
         return Y
     
-    def _compute_regressor_matrix(self, q, dq, ddq):
-        # Returns the global regressor matrix        
+    def _compute_regressor_matrix(self):
+        """
+        Returns the global regressor matrix
+        """
         # Compute the indivdual regressors
         ind_regressors = dict()
         spatial_velocities, spatial_accelerations = self._compute_spatial_vel_acc()
@@ -192,11 +198,11 @@ class SystemIdentification(object):
         
         return self._Y
 
-    def get_projected_llsq_roblem(self,q, dq, ddq, tau, contact_scedule):
+    def get_projected_llsq_roblem(self, q, dq, ddq, tau, contact_scedule):
         # Returns the regressor matrix and joint torque vector projected into the null space of contacts
         self._update_fk(q, dq, ddq)
-        Y = self._compute_regressor_matrix(q, dq, ddq)
-        P = self._compute_null_space_proj(q, contact_scedule)
+        Y = self._compute_regressor_matrix()
+        P = self._compute_null_space_proj(contact_scedule)
         Y_proj = P @ Y
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
@@ -206,7 +212,9 @@ class SystemIdentification(object):
         self._update_fk(q, dq, ddq)
         Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
         P = self._compute_null_space_proj(contact_scedule)
-        return P@Y, P@self._S.T@tau
+        Y_proj = P @ Y
+        tau_proj = P @ self._S.T @ tau
+        return Y_proj, tau_proj
 
 
 if __name__ == "__main__":
