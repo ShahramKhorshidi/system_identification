@@ -1,17 +1,21 @@
+import yaml
+import trimesh
 import numpy as np
 import pinocchio as pin
 from pathlib import Path
 from numpy.linalg import pinv
+from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
 
 class SystemIdentification(object):
     def __init__(self, urdf_filename, floating_base, viz=None):
+        self.urdf_path = urdf_filename
         # Creat robot model and data
         self._floating_base = floating_base
         if self._floating_base:
-            self._rmodel = pin.buildModelFromUrdf(urdf_filename, pin.JointModelFreeFlyer())
+            self._rmodel = pin.buildModelFromUrdf(self.urdf_path, pin.JointModelFreeFlyer())
         else:
-            self._rmodel = pin.buildModelFromUrdf(urdf_filename)
+            self._rmodel = pin.buildModelFromUrdf(self.urdf_path)
         self._rdata = self._rmodel.createData()
         
         # Set the gravity vector in pinocchio
@@ -37,8 +41,7 @@ class SystemIdentification(object):
         
         # List of the end_effector names
         # TODO: Later put all changing parameters in a separate yaml config file
-        # self._end_eff_frame_names = ["HL_ANKLE", "HR_ANKLE", "FL_ANKLE", "FR_ANKLE"]
-        self._end_eff_frame_names = ["front_left_lower_leg", "front_right_lower_leg", "rear_left_lower_leg", "rear_right_lower_leg"]
+        self._end_eff_frame_names = ["HL_ANKLE", "HR_ANKLE", "FL_ANKLE", "FR_ANKLE"]
         self._endeff_ids = [
             self._rmodel.getFrameId(name)
             for name in self._end_eff_frame_names
@@ -47,6 +50,7 @@ class SystemIdentification(object):
         
         self._init_motion_subspace_dict()
         self._show_kinematic_tree()
+        self.get_bounding_ellipsoids()
     
     def _show_kinematic_tree(self):
         print("##### Kinematic Tree #####")
@@ -198,7 +202,42 @@ class SystemIdentification(object):
                 Y_i = jXi.action @ ind_regressors[joint_id]
         
         return self._Y
-
+    
+    def get_bounding_ellipsoids(self):
+        robot = URDF.from_xml_file(self.urdf_path)
+        bounding_ellipsoids = []
+        for link in robot.links:
+            print(link)
+            for visual in link.visuals:
+                geometry = visual.geometry
+                if isinstance(geometry, Box):
+                    size = np.array(geometry.size)
+                    semi_axes = size / 2
+                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                elif isinstance(geometry, Cylinder):
+                    radius = geometry.radius
+                    length = geometry.length
+                    semi_axes = [radius, radius, length / 2]
+                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                elif isinstance(geometry, Sphere):
+                    radius = geometry.radius
+                    semi_axes = [radius, radius, radius]
+                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                elif isinstance(geometry, Mesh):
+                    mesh_path = geometry.filename
+                    mesh = trimesh.load_mesh(mesh_path)
+                    # TODO: Check if this is actually returning half of the lengths for the bounding_box 
+                    # otherwise it should be divided by 2
+                    semi_axes = mesh.bounding_box.extents
+                    center = mesh.bounding_box.centroid
+                else:
+                    raise ValueError(f"Unsupported geometry type for link {link.name}")
+                
+                bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
+        print(bounding_ellipsoids)
+        print("#####", len(bounding_ellipsoids))
+        return bounding_ellipsoids
+    
     def get_projected_llsq_roblem(self, q, dq, ddq, tau, contact_scedule):
         # Returns the regressor matrix and joint torque vector projected into the null space of contacts
         self._update_fk(q, dq, ddq)
@@ -220,7 +259,7 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     cur_dir = Path.cwd()
-    robot_urdf = cur_dir/"urdf"/"solo12.urdf"
+    robot_urdf = cur_dir/"urdf"/"robot.urdf"
     robot_sys_iden = SystemIdentification(str(robot_urdf), floating_base=True)
     
     # robot_q = pin.randomConfiguration(robot_sys_iden._rmodel)
@@ -233,4 +272,4 @@ if __name__ == "__main__":
     # regressor = robot_sys_iden.compute_regressor_matrix(robot_q, robot_dq, robot_ddq)
     # print("#### Computed Regressor ####\n", regressor)
     y, tau = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq, robot_tau, contact_config)
-    print("#### Pinocchio #### \n",y)
+    # print("#### Pinocchio #### \n",y)
