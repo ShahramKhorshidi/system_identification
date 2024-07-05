@@ -23,20 +23,46 @@ def calculate_regressor_and_torque(q, dq, ddq, torque, cnt, sys_idnt):
         Tau.append(tau)
     return Y, Tau
 
+def print_identified_parametrs(phi, num_of_links):
+    total_mass = 0
+    for i in range(num_of_links):
+        print("### inertial Parameters of link", i, "###")
+        index = 10*i
+        print("mass:", phi[index])
+        print("com:", phi[index+1: index+4]/phi[index])
+        print("Inertia:", phi[index+4:index+10],"\n")
+        total_mass += phi[index]
+    print("### Total_mass:", total_mass, "###")
+
 def main():
     path = Path.cwd()
     q, dq, ddq, torque, cnt = read_data(path/"data")
-    sys_idnt = SystemIdentification(str(path/"urdf"/"solo12.urdf"), floating_base=True)
+    robot_urdf = path/"files"/"solo12.urdf"
+    robot_config = path/"files"/"solo12_config.yaml"
+    sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # Calculate regressor and torque
     Y, Tau = calculate_regressor_and_torque(q, dq, ddq, torque, cnt, sys_idnt)
     Y = np.vstack(Y)
     Tau = np.hstack(Tau)
     
-    # Solve the llsq problem
-    solver = Solvers(Y, Tau)
-    phi = solver.solve_llsq_svd()
-    print("## Inertial parameters of the robot ##\n", phi)
+    # Instantiate the solver
+    total_mass = sys_idnt.get_robot_mass()
+    num_of_links =int(Y.shape[1]/10)
+    # phi_prior is the prior values for the inertial parameters
+    # It can be obtained from CAD file if available. Here I am jsut using some crude guess
+    phi_prior = np.zeros(Y.shape[1])
+    for i in range(num_of_links):
+        j = 10 * i
+        phi_prior[j] = 0.1
+        phi_prior[j+1:j+4] = 3 * [0.1]
+        phi_prior[j+4:j+10] = 6 * [0.005]
+    
+    bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
+    solver = Solvers(Y, Tau, phi_prior, bounding_ellipsoids)
+
+    phi = solver.solve_fully_consistent(total_mass, lambda_reg=1e-1)
+    print_identified_parametrs(phi, num_of_links)
 
 if __name__ == "__main__":
     main()

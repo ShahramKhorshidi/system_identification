@@ -4,29 +4,29 @@ import cvxpy as cp
 
 class Solvers():
     def __init__(self, A_matrix, b_vec, phi_prior, bounding_ellipsoids):
-        self.A = A_matrix
-        self.b = b_vec
-        self.nx = self.A.shape[1]
+        self._A = A_matrix
+        self._b = b_vec
+        self._nx = self._A.shape[1]
         self._num_inertial_param = 10
-        self.num_links = int(self.A.shape[1] / self._num_inertial_param)
+        self._num_links = int(self._A.shape[1] / self._num_inertial_param)
         
-        self.bounding_ellipsoids = bounding_ellipsoids
-        self.phi_prior = phi_prior  # Prior inertial parameters
-        self.use_const_pullback_approx = True
+        self._bounding_ellipsoids = bounding_ellipsoids
+        self._phi_prior = phi_prior  # Prior inertial parameters
         
         # Initialize optimization variables and problem to use solvers from cp
-        self.x = cp.Variable(self.nx)
-        self.objective = None
-        self.constraints = []
-        self.problem = None
+        self._x = cp.Variable(self._nx)
+        self._objective = None
+        self._constraints = []
+        self._problem = None
     
+    ## --------- Unconstrained Solvers --------- ##
     def normal_equation(self, lambda_reg=0.1):
         """
         Solve llsq using the normal equations with regularization.
         """
         # lambda_reg is regularization parameter
-        I = np.eye(self.nx)
-        return np.linalg.inv(self.A.T @ self.A + lambda_reg * I) @ self.A.T @ self.b
+        I = np.eye(self._nx)
+        return np.linalg.inv(self._A.T @ self._A + lambda_reg * I) @ self._A.T @ self._b
     
     def conjugate_gradient(self, tol=1e-6, max_iter=1000):
         """
@@ -34,11 +34,11 @@ class Solvers():
         When A is full column rank.
         """
         # Compute A.T@A and A.T@b
-        AtA = self.A.T @ self.A
-        Atb = self.A.T @ self.b
+        AtA = self._A.T @ self._A
+        Atb = self._A.T @ self._b
         
         # Initialize x, r, p
-        x = np.zeros(self.nx)
+        x = np.zeros(self._nx)
         r = Atb - AtA @ x
         p = r.copy()
         rs_old = np.dot(r.T, r)
@@ -63,24 +63,24 @@ class Solvers():
         """
         Solve llsq using Singular Value Decomposition (SVD).
         """
-        U, Sigma, VT = np.linalg.svd(self.A, full_matrices=False)
+        U, Sigma, VT = np.linalg.svd(self._A, full_matrices=False)
         Sigma_inv = np.linalg.pinv(np.diag(Sigma))
         A_psudo = VT.T @ Sigma_inv @ U.T
-        return A_psudo@self.b
+        return A_psudo@self._b
     
     def wighted_llsq(self, weights=None):
         """
         Solve weighted least squares using cvxpy.
         """
         if weights is None:
-            weights = np.ones(self.A.shape[0])
+            weights = np.ones(self._A.shape[0])
         
         # Define the weighted least squares objective function
-        residuals = self.A @ self.x - self.b
-        self.objective = cp.Minimize(cp.sum_squares(cp.multiply(weights, residuals)))
-        self.problem = cp.Problem(self.objective)
-        self.problem.solve()
-        return self.x.value
+        residuals = self._A @ self._x - self._b
+        self._objective = cp.Minimize(cp.sum_squares(cp.multiply(weights, residuals)))
+        self._problem = cp.Problem(self._objective)
+        self._problem.solve()
+        return self._x.value
     
     def ridge_regression(self, lambda_reg=0.1, x_init=None, warm_start=False):
         """
@@ -88,16 +88,17 @@ class Solvers():
         """
         # Set the initial value of the decision variable
         if x_init is None:
-            x_init = np.zeros(self.nx)
-        self.x.value = x_init
+            x_init = np.zeros(self._nx)
+        self._x.value = x_init
         
-        self.objective = cp.Minimize(cp.sum_squares(self.A @ self.x - self.b) + lambda_reg * cp.norm(self.x, 2))
-        self.problem = cp.Problem(self.objective)
-        self.problem.solve(solver=cp.SCS, warm_start=warm_start)
-        return self.x.value
+        self._objective = cp.Minimize(cp.sum_squares(self._A @ self._x - self._b) + lambda_reg * cp.norm(self._x, 2))
+        self._problem = cp.Problem(self._objective)
+        self._problem.solve(solver=cp.SCS, warm_start=warm_start)
+        return self._x.value
 
+    ## --------- Constrained Solvers (LMI) --------- ##
     def _construct_spatial_inertia_matrix(self, phi):
-        # Returns the spatila body inertia (6x6)
+        # Returns the spatila body inertia matrix (6x6)
         mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
         spatial_inertia_matrix = cp.vstack([
             cp.hstack([I_xx, I_xy, I_xz, 0   , -h_z , h_y ]),
@@ -114,11 +115,11 @@ class Solvers():
         Solve constrained least squares problem as LMI. Ensuring physical Semi-consistency.
         """
         mass_sum = 0  # To accumulate the total mass
-        self.constraints = []  # Ensure constraints list is fresh
+        self._constraints = []  # Ensure constraints list is fresh
         
-        for j in range(0, self.nx, self._num_inertial_param):
+        for j in range(0, self._nx, self._num_inertial_param):
             # Extracting the Inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
-            phi_j = self.x[j:j+self._num_inertial_param]
+            phi_j = self._x[j:j+self._num_inertial_param]
 
             # Mass
             mass = phi_j[0]
@@ -126,18 +127,18 @@ class Solvers():
             
             # Spatial inertia matrix (I: 6x6)
             spatial_inertia_matrix = self._construct_spatial_inertia_matrix(phi_j)
-            self.constraints.append(spatial_inertia_matrix >> 0)  # Positive definite constraint
+            self._constraints.append(spatial_inertia_matrix >> 0)  # Positive definite constraint
         
         # Add the total mass constraint
-        self.constraints.append(mass_sum == total_mass)
+        self._constraints.append(mass_sum == total_mass)
         
-        self.objective = cp.Minimize(
-            cp.sum_squares(self.A @ self.x - self.b) / self.A.shape[0]  + lambda_reg * cp.norm(self.x, 2)
+        self._objective = cp.Minimize(
+            cp.sum_squares(self._A @ self._x - self._b) / self._A.shape[0]  + lambda_reg * cp.norm(self._x, 2)
         )
         
-        self.problem = cp.Problem(self.objective, self.constraints)
-        self.problem.solve(solver=cp.SCS, verbose=True, eps=1e-3, max_iters=20000)
-        return self.x.value
+        self._problem = cp.Problem(self._objective, self._constraints)
+        self._problem.solve(solver=cp.SCS, verbose=True, eps=1e-3, max_iters=20000)
+        return self._x.value
     
     def _construct_pseudo_inertia_matrix(self, phi):
         # Retunrs the pseudo inertia matrix (J: 4x4)
@@ -182,19 +183,19 @@ class Solvers():
         Q_full = np.vstack([np.hstack([Q, Qc[:, np.newaxis]]), np.append(Qc, 1 - center @ Qc)])
         return Q_full
     
-    def solve_fully_consistent(self, total_mass, lambda_reg=1e-1):
+    def solve_fully_consistent(self, total_mass, lambda_reg=1e-1, use_const_pullback_approx=True):
         """
         Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
         mass_sum = 0  # To accumulate the total mass
         bregman_divergence = 0  # Initialize Bregman divergence
-        self.constraints = []  # Ensure constraints list is fresh
+        self._constraints = []  # Ensure constraints list is fresh
         
-        for j in range(0, self.nx, self._num_inertial_param):
+        for j in range(0, self._nx, self._num_inertial_param):
             # Extracting the inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
-            phi_j = self.x[j: j+self._num_inertial_param]
-            phi_prior_j = self.phi_prior[j: j+self._num_inertial_param]
-            ellipsoid_params = self.bounding_ellipsoids[j // self._num_inertial_param]
+            phi_j = self._x[j: j+self._num_inertial_param]
+            phi_prior_j = self._phi_prior[j: j+self._num_inertial_param]
+            ellipsoid_params = self._bounding_ellipsoids[j // self._num_inertial_param]
             
             # Mass
             mass = phi_j[0]
@@ -202,14 +203,14 @@ class Solvers():
             
             # Pseudo inertia matrix (J: 4x4)
             pseudo_inertia_matrix = self._construct_pseudo_inertia_matrix(phi_j)
-            self.constraints.append(pseudo_inertia_matrix >> 0) # Positive definite constraint
+            self._constraints.append(pseudo_inertia_matrix >> 0) # Positive definite constraint
             
             # Add the bounding ellipsoid constraint
             Q_ellipsoid = self._construct_ellipsoid_matrix(ellipsoid_params['semi_axes'], ellipsoid_params['center'])
-            self.constraints.append(cp.trace(Q_ellipsoid @ pseudo_inertia_matrix) <= 0)
+            self._constraints.append(cp.trace(Q_ellipsoid @ pseudo_inertia_matrix) <= 0)
             
             # Bregman Divergence Term, TODO: I have to check
-            if self.use_const_pullback_approx:
+            if use_const_pullback_approx:
                 trace_prior = 0.5 * (phi_prior_j[4] + phi_prior_j[7] + phi_prior_j[9])
                 J_prior = self._construct_pseudo_inertia_matrix(phi_prior_j)
                 bregman_divergence += -cp.log_det(pseudo_inertia_matrix) + cp.log_det(J_prior) + cp.trace(cp.inv_pos(J_prior) @ pseudo_inertia_matrix) - 4
@@ -219,12 +220,12 @@ class Solvers():
                 bregman_divergence += 0.5 * cp.quad_form(phi_diff, M)
         
         # Add the total mass constraint
-        self.constraints.append(mass_sum == total_mass)
+        self._constraints.append(mass_sum == total_mass)
         
-        self.objective = cp.Minimize(
-            cp.sum_squares(self.A @ self.x - self.b)/ self.A.shape[0] + lambda_reg * bregman_divergence
+        self._objective = cp.Minimize(
+            cp.sum_squares(self._A @ self._x - self._b)/ self._A.shape[0] + lambda_reg * bregman_divergence
         )
         
-        self.problem = cp.Problem(self.objective, self.constraints)
-        self.problem.solve(solver=cp.SCS, verbose=True, eps=1e-4, max_iters=30000)
-        return self.x.value
+        self._problem = cp.Problem(self._objective, self._constraints)
+        self._problem.solve(solver=cp.SCS, verbose=True, eps=1e-4, max_iters=30000)
+        return self._x.value
