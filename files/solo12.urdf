@@ -17,7 +17,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo_12_base.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo_12_base.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -27,7 +27,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo_12_base.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo_12_base.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -55,7 +55,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_fl.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_fl.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -65,7 +65,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_fl.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_fl.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -99,7 +99,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -109,7 +109,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -144,7 +144,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -154,7 +154,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -203,7 +203,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_fr.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_fr.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -213,7 +213,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_fr.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_fr.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -247,7 +247,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -257,7 +257,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -292,7 +292,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -302,7 +302,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -351,7 +351,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_hl.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_hl.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -361,7 +361,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_hl.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_hl.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -395,7 +395,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -405,7 +405,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -440,7 +440,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -450,7 +450,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_left_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -499,7 +499,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="-0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_hr.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_hr.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -509,7 +509,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="-0.01950 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/solo12/solo12_hip_fe_hr.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/solo12/solo12_hip_fe_hr.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -543,7 +543,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -553,7 +553,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_upper_leg_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_upper_leg_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -588,7 +588,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -598,7 +598,7 @@
     <collision>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="package://robot_properties_solo/resources/meshes/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
+        <mesh filename="/home/khorshidi/git/system_identification/files/mesh/stl/without_foot/solo_lower_leg_v2_right_side.stl"/>
       </geometry>
       <material name="grey">
         <color rgba="0.8 0.8 0.8 1.0"/>
@@ -633,3 +633,4 @@
   </link>
   <!-- END FOOT LINK -->
 </robot>
+

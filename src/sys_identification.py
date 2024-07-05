@@ -8,7 +8,7 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
 
 class SystemIdentification(object):
-    def __init__(self, urdf_filename, floating_base, viz=None):
+    def __init__(self, urdf_filename, config_file, floating_base, viz=None):
         self.urdf_path = urdf_filename
         # Creat robot model and data
         self._floating_base = floating_base
@@ -39,9 +39,13 @@ class SystemIdentification(object):
         self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
         self._Y = np.zeros((self.nv, self._num_inertial_param * self._num_links), dtype=np.float32)
         
+        # Load configuration from YAML file
+        with open(config_file, 'r') as file:
+            config = yaml.safe_load(file)
+        robot_config = config.get('robot', {})
+        self._robot_mass = robot_config.get('mass')
         # List of the end_effector names
-        # TODO: Later put all changing parameters in a separate yaml config file
-        self._end_eff_frame_names = ["HL_ANKLE", "HR_ANKLE", "FL_ANKLE", "FR_ANKLE"]
+        self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
         self._endeff_ids = [
             self._rmodel.getFrameId(name)
             for name in self._end_eff_frame_names
@@ -259,8 +263,9 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     cur_dir = Path.cwd()
-    robot_urdf = cur_dir/"urdf"/"robot.urdf"
-    robot_sys_iden = SystemIdentification(str(robot_urdf), floating_base=True)
+    robot_urdf = cur_dir/"files"/"solo12.urdf"
+    robot_config = cur_dir/"files"/"solo12_config.yaml"
+    robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # robot_q = pin.randomConfiguration(robot_sys_iden._rmodel)
     robot_q = np.random.rand(robot_sys_iden.nq)
