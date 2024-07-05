@@ -3,15 +3,16 @@ import cvxpy as cp
 
 
 class Solvers():
-    def __init__(self, A_matrix, b_vec, phi_prior):
+    def __init__(self, A_matrix, b_vec, phi_prior, bounding_ellipsoids):
         self.A = A_matrix
         self.b = b_vec
         self.nx = self.A.shape[1]
         self._num_inertial_param = 10
-        self.num_links = self.A.shape[1] // self._num_inertial_param
+        self.num_links = int(self.A.shape[1] / self._num_inertial_param)
         
+        self.bounding_ellipsoids = bounding_ellipsoids
         self.phi_prior = phi_prior  # Prior inertial parameters
-        self.use_const_pullback_approx = 1
+        self.use_const_pullback_approx = True
         
         # Initialize optimization variables and problem to use solvers from cp
         self.x = cp.Variable(self.nx)
@@ -110,16 +111,15 @@ class Solvers():
     
     def solve_semi_consistent(self, total_mass, lambda_reg=1e-1):
         """
-        Solve constrained least squares problem. Ensuring physical Semi-consistency.
+        Solve constrained least squares problem as LMI. Ensuring physical Semi-consistency.
         """
-        self.objective = cp.Minimize(cp.sum_squares(self.A @ self.x - self.b) + lambda_reg * cp.norm(self.x, 2))
-        
-        # phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz] (for each link)
         mass_sum = 0  # To accumulate the total mass
+        self.constraints = []  # Ensure constraints list is fresh
+        
         for j in range(0, self.nx, self._num_inertial_param):
-            # Extracting the Inertial parameters
+            # Extracting the Inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
             phi_j = self.x[j:j+self._num_inertial_param]
-            
+
             # Mass
             mass = phi_j[0]
             mass_sum += mass
@@ -130,7 +130,11 @@ class Solvers():
         
         # Add the total mass constraint
         self.constraints.append(mass_sum == total_mass)
-
+        
+        self.objective = cp.Minimize(
+            cp.sum_squares(self.A @ self.x - self.b) / self.A.shape[0]  + lambda_reg * cp.norm(self.x, 2)
+        )
+        
         self.problem = cp.Problem(self.objective, self.constraints)
         self.problem.solve(solver=cp.SCS, verbose=True, eps=1e-3, max_iters=20000)
         return self.x.value
@@ -147,9 +151,9 @@ class Solvers():
         ])
         return pseudo_inertia_matrix
     
-    def _pullback_metric(self, params):
+    def _pullback_metric(self, phi):
         M = np.zeros((10, 10))
-        P = self._construct_pseudo_inertia_matrix(params).value
+        P = self._construct_pseudo_inertia_matrix(phi).value
         P_inv = np.linalg.inv(P)
         
         for i in range(10):
@@ -162,19 +166,35 @@ class Solvers():
                 V_j = self._construct_pseudo_inertia_matrix(v_j).value
                 M[i, j] = np.trace(P_inv @ V_i @ P_inv @ V_j)
         
+        # Ensure M is symmetric
+        M = (M + M.T) / 2
+        
+        # Ensure M is positive semi-definite
+        eigenvalues = np.linalg.eigvals(M)
+        if np.any(eigenvalues < 0):
+            M = M - np.min(eigenvalues) * np.eye(M.shape[0])
+            
         return M
+    
+    def _construct_ellipsoid_matrix(self, semi_axes, center):
+        Q = np.linalg.inv(np.diag(semi_axes)**2)
+        Qc = Q @ center
+        Q_full = np.vstack([np.hstack([Q, Qc[:, np.newaxis]]), np.append(Qc, 1 - center @ Qc)])
+        return Q_full
     
     def solve_fully_consistent(self, total_mass, lambda_reg=1e-1):
         """
-        Solve constrained least squares problem. Ensuring physical Fully-consistency.
+        Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
-        # For each link: phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
         mass_sum = 0  # To accumulate the total mass
+        bregman_divergence = 0  # Initialize Bregman divergence
+        self.constraints = []  # Ensure constraints list is fresh
         
         for j in range(0, self.nx, self._num_inertial_param):
-            # Extracting the inertial parameters
+            # Extracting the inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
             phi_j = self.x[j: j+self._num_inertial_param]
             phi_prior_j = self.phi_prior[j: j+self._num_inertial_param]
+            ellipsoid_params = self.bounding_ellipsoids[j // self._num_inertial_param]
             
             # Mass
             mass = phi_j[0]
@@ -184,14 +204,19 @@ class Solvers():
             pseudo_inertia_matrix = self._construct_pseudo_inertia_matrix(phi_j)
             self.constraints.append(pseudo_inertia_matrix >> 0) # Positive definite constraint
             
-            # Bregman Divergence Term
+            # Add the bounding ellipsoid constraint
+            Q_ellipsoid = self._construct_ellipsoid_matrix(ellipsoid_params['semi_axes'], ellipsoid_params['center'])
+            self.constraints.append(cp.trace(Q_ellipsoid @ pseudo_inertia_matrix) <= 0)
+            
+            # Bregman Divergence Term, TODO: I have to check
             if self.use_const_pullback_approx:
                 trace_prior = 0.5 * (phi_prior_j[4] + phi_prior_j[7] + phi_prior_j[9])
                 J_prior = self._construct_pseudo_inertia_matrix(phi_prior_j)
                 bregman_divergence += -cp.log_det(pseudo_inertia_matrix) + cp.log_det(J_prior) + cp.trace(cp.inv_pos(J_prior) @ pseudo_inertia_matrix) - 4
             else:
                 M = self._pullback_metric(phi_prior_j)
-                bregman_divergence += 0.5 * cp.quad_form(phi_j - phi_prior_j, M)
+                phi_diff = phi_j - phi_prior_j
+                bregman_divergence += 0.5 * cp.quad_form(phi_diff, M)
         
         # Add the total mass constraint
         self.constraints.append(mass_sum == total_mass)
