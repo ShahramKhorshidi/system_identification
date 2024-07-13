@@ -9,7 +9,7 @@ from bosdyn.client.robot_state import RobotStateClient
 import csv
 import numpy as np
 
-NUMBER_OF_OBSERVATIONS = 5000
+NUMBER_OF_OBSERVATIONS = 6000
 
 TIMESTAMP_LEN = 2
 POSITION_LEN = 19
@@ -97,7 +97,8 @@ def get_robot_state(robot_state_client : RobotStateClient, qd_odom_old, qd_visio
     q_vision[5] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.z
     q_vision[6] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.w
 
-    # base velocity
+    # base velocity 
+    # TODO ==========================transform velocity into body frame===============================
     qd_odom[0] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.x
     qd_odom[1] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.y
     qd_odom[2] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.z
@@ -121,8 +122,8 @@ def get_robot_state(robot_state_client : RobotStateClient, qd_odom_old, qd_visio
         qdd_vision[js+6] = robot_state.kinematic_state.joint_states[js].acceleration.value
         tau[js]          = robot_state.kinematic_state.joint_states[js].load.value
 
-    # base and joint acceleration via finite differencing
-    for i in range(0, ACCELERATION_LEN):
+    # base acceleration via finite differencing
+    for i in range(0, 6):
         delta_time_seconds = timestamp[0] - timestamp_old[0]
         delta_time_nanoseconds = timestamp[1] - timestamp_old[1]
         delta_time = delta_time_seconds + delta_time_nanoseconds*0.000000001
