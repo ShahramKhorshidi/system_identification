@@ -8,9 +8,10 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
 
 class SystemIdentification(object):
-    def __init__(self, urdf_file, config_file, floating_base, viz=None):
+    def __init__(self, urdf_file, config_file, floating_base):
         self._urdf_path = urdf_file
-        # Creat robot model and data
+        
+        # Create robot model and data
         self._floating_base = floating_base
         if self._floating_base:
             self._rmodel = pin.buildModelFromUrdf(self._urdf_path, pin.JointModelFreeFlyer())
@@ -33,17 +34,26 @@ class SystemIdentification(object):
             self._S = np.eye(self.nv)
         
         # Initialize the regressor matrix with proper dimension
-        # For now only considering 10 inertial parameters for each link
-        # [m h_x h_y h_z I_xx I_xy I_xz I_yy I_yz I_zz]
+        # phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz], inertial parameters for each link
         self._num_inertial_param = 10
         self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
+        self._phi_prior = np.zeros((self._num_inertial_param * self._num_links), dtype=np.float32)
         self._Y = np.zeros((self.nv, self._num_inertial_param * self._num_links), dtype=np.float32)
         
-        # Load configuration from YAML file
+        # Load robot configuration from YAML file
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
         robot_config = config.get('robot', {})
+        self._robot_name = robot_config.get('name')
         self._robot_mass = robot_config.get('mass')
+        
+        # List of bounding ellipsoids for all links
+        self._bounding_ellipsoids = []
+        for ellipsoid in robot_config.get('bounding_ellipsoids'):
+            ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
+            ellipsoid['center'] = np.array(ellipsoid['center'])
+            self._bounding_ellipsoids.append(ellipsoid)
+        
         # List of the end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
         self._endeff_ids = [
@@ -53,7 +63,7 @@ class SystemIdentification(object):
         self._nb_ee = len(self._end_eff_frame_names)
         
         self._init_motion_subspace_dict()
-        self._show_kinematic_tree()
+        # self._show_kinematic_tree()
     
     def _show_kinematic_tree(self):
         print("##### Kinematic Tree #####")
@@ -117,6 +127,17 @@ class SystemIdentification(object):
         p = np.eye((self.nv)) - pinv(J_c) @ J_c
         return p
     
+    def _compute_lambda(self, force, contact_scedule):
+        # Returns the force vector of m feet in contact, dim(3*m)
+        m = int(np.sum(contact_scedule))
+        lamda = np.zeros(3 * m)
+        j = 0
+        for i in range(self._nb_ee):
+            if contact_scedule[i]:
+                lamda[0+j:3+j] = force[3*i:3*(i+1)]
+                j += 3
+        return lamda
+    
     def _compute_spatial_vel_acc(self):
         # Returns dictionaries of spatial velocity and acceleration of all joints
         spatial_velocities = dict()
@@ -148,9 +169,8 @@ class SystemIdentification(object):
     def _compute_individual_regressor(self, v, a):
         # Returns the regressor matrix, (dim:6x10), for an individual link
         # v, a are spatial velocity and acceleration
-        lin_vel = v.linear
         omega = v.angular
-        lin_acc = a.linear
+        lin_acc = a.linear - np.array([0, 0, -9.81])
         alpha = a.angular
         Y = np.zeros((6, 10), dtype=np.float32)
         Y[0:3, 0] = lin_acc
@@ -205,13 +225,10 @@ class SystemIdentification(object):
                 Y_i = jXi.action @ ind_regressors[joint_id]
         
         return self._Y
-    
-    def get_robot_mass(self):
-        return self._robot_mass
-    
-    def get_bounding_ellipsoids(self):
+
+    def compute_bounding_ellipsoids(self):
         robot = URDF.from_xml_file(self._urdf_path)
-        bounding_ellipsoids = []
+        self._bounding_ellipsoids = []
         for link in robot.links:
             for visual in link.visuals:
                 geometry = visual.geometry
@@ -231,15 +248,97 @@ class SystemIdentification(object):
                 elif isinstance(geometry, Mesh):
                     mesh_path = geometry.filename
                     mesh = trimesh.load_mesh(mesh_path)
-                    # TODO: Check if this is actually returning half of the lengths for the bounding_box 
-                    # otherwise it should be divided by 2
-                    semi_axes = mesh.bounding_box.extents
-                    center = mesh.bounding_box.centroid
+                    semi_axes = mesh.bounding_box.extents / 2
+                    origin =  visual.origin.xyz
+                    center =  mesh.bounding_box.centroid + origin
                 else:
                     raise ValueError(f"Unsupported geometry type for link {link.name}")
-                
-                bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
-        return bounding_ellipsoids
+                self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
+
+    def get_robot_mass(self):
+        return self._robot_mass
+    
+    def get_num_links(self):
+        return self._num_links
+    
+    def get_bounding_ellipsoids(self):
+        return self._bounding_ellipsoids
+    
+    def get_phi_prior(self):
+        for i in range(1, self._rmodel.njoints):
+            j = 10*(i-1)
+            self._phi_prior[j] = self._rmodel.inertias[i].mass
+            self._phi_prior[j+1: j+4] = self._rmodel.inertias[i].mass * self._rmodel.inertias[i].lever
+            self._phi_prior[j+4: j+7] = self._rmodel.inertias[i].inertia[0, :]
+            self._phi_prior[j+7: j+9] = self._rmodel.inertias[i].inertia[1, 1:]
+            self._phi_prior[j+9] = self._rmodel.inertias[i].inertia[2, 2]
+        return self._phi_prior
+    
+    def check_physical_consistency(self, phi):
+        eigval_I_bar = []
+        eigval_I = []
+        eigval_J = []
+        eigval_com =[]
+        trace = []
+        
+        ellipsoids = self.get_bounding_ellipsoids()
+        for j in range(0, phi.size, self._num_inertial_param):
+            # Extracting the inertial parameters
+            m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi[j: j+self._num_inertial_param]
+            h = np.array([h_x, h_y, h_z])
+            ellipsoid_params = ellipsoids[j // self._num_inertial_param]
+            semi_axes = ellipsoid_params['semi_axes']
+            center = ellipsoid_params['center']
+            
+            # Inertia matrix (3x3)
+            I_bar = np.array([[I_xx, I_xy, I_xz],
+                              [I_xy, I_yy, I_yz],
+                              [I_xz, I_yz, I_zz]])
+            
+            # Spatial body inertia (6x6)
+            I = np.zeros((6,6), dtype=np.float32)
+            I[0:3, 0:3] = I_bar
+            I[0:3, 3:] = pin.skew(h)
+            I[3:, 0:3] = pin.skew(h).T
+            I[3:, 3:] = m * np.eye(3)
+            
+            # Bounding ellipsoid: Q matrix (4x4)
+            Q_full = np.zeros((4,4), dtype=np.float32)
+            Q = np.linalg.inv(np.diag(semi_axes)**2)
+            Q_full[:3, :3] = Q
+            Q_full[:3, 3] = Q @ center
+            Q_full[3, :3] = (Q @ center).T
+            Q_full[3, 3] = 1 - (center.T @ Q @ center)
+            
+            # Pseudo inertia matrix (4x4)
+            J = np.zeros((4,4), dtype=np.float32)
+            J[:3, :3] = 0.5 * np.trace(I_bar) * np.eye(3) - I_bar
+            J[:3, 3] = h
+            J[3, :3] = h.T 
+            J[3,3] = m
+            
+            # CoM constraint (4x4)
+            C = np.zeros((4,4), dtype=np.float32)
+            C[0, 0] = m
+            C[0, 1:] = h.T - m * center.T
+            C[1:, 0] = h - m * center
+            C[1:, 1:] = m * np.diag(semi_axes)**2
+            
+            # Calculate minimum eigenvalue of each matrix
+            min_eigval_I_bar = np.min(np.linalg.eigvals(I_bar))
+            min_eigval_I = np.min(np.linalg.eigvals(I))
+            min_eigval_J = np.min(np.linalg.eigvals(J))
+            min_eigval_c = np.min(np.linalg.eigvals(C))
+            density_realizable = np.trace(J @ Q_full)
+            
+            # Add to the list
+            eigval_I_bar.append(min_eigval_I_bar)
+            eigval_I.append(min_eigval_I)
+            eigval_J.append(min_eigval_J)
+            eigval_com.append(min_eigval_c)
+            trace.append(density_realizable)
+
+        return eigval_I_bar, eigval_I, eigval_J, eigval_com, trace
     
     def get_projected_llsq_problem(self, q, dq, ddq, tau, contact_scedule):
         # Returns the regressor matrix and joint torque vector projected into the null space of contacts
@@ -250,11 +349,28 @@ class SystemIdentification(object):
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
     
-    def get_regressor_pin(self, q, dq, ddq, tau, contact_scedule):
-        # For validation with pinocchio
+    def get_full_y_force(self, q, dq, ddq, tau, force, cnt):
         self._update_fk(q, dq, ddq)
         Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
-        P = self._compute_null_space_proj(contact_scedule)
+        J_c = self._compute_J_c(cnt)
+        lamda = self._compute_lambda(force, cnt)
+        F = self._S.T @ tau + J_c.T @ lamda
+        return Y, F 
+    
+    def get_proj_regressor_torque(self, q, dq, ddq, tau, cnt):
+        self._update_fk(q, dq, ddq)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        P = self._compute_null_space_proj(cnt)
         Y_proj = P @ Y
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
+    
+    def get_regressor_pin(self, q, dq, ddq, cnt, force, torque):
+        self._update_fk(q, dq, ddq)
+        tau = pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        J_c = self._compute_J_c(cnt)
+        lamda = self._compute_lambda(force, cnt)
+        F = J_c.T @ lamda# + self._S.T @ torque
+        return Y, tau, F
+    
