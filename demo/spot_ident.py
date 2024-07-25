@@ -64,7 +64,7 @@ class SystemParameters:
 
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            y, tau = sys_idnt.get_regressor_pin(q[:, 0], dq[:, 0], ddq[:, 0], torque[:, 0], contact_scedule[:, 0])
+            y, tau = sys_idnt.get_proj_regressor_torque(q[:, 0], dq[:, 0], ddq[:, 0], torque[:, 0], contact_scedule[:, 0])
             self.Y.append(y)
             self.Tau.append(tau)
         
