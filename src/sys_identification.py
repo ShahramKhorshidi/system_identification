@@ -48,10 +48,10 @@ class SystemIdentification(object):
         
         # List of bounding ellipsoids for all links
         self._bounding_ellipsoids = []
-        # for ellipsoid in robot_config.get('bounding_ellipsoids'):
-        #     ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
-        #     ellipsoid['center'] = np.array(ellipsoid['center'])
-        #     self._bounding_ellipsoids.append(ellipsoid)
+        for ellipsoid in robot_config.get('bounding_ellipsoids'):
+            ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
+            ellipsoid['center'] = np.array(ellipsoid['center'])
+            self._bounding_ellipsoids.append(ellipsoid)
         
         # List of the end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
