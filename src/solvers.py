@@ -8,58 +8,19 @@ class Solvers():
         self._b = b_vec
         self._nx = self._A.shape[1]
         self._num_links = num_links
-        self._num_inertial_param = int(self._A.shape[1] / self._num_links)
+        self._num_inertial_params = self._A.shape[1] // self._num_links
         
         self._bounding_ellipsoids = bounding_ellipsoids
         self._phi_prior = phi_prior  # Prior inertial parameters
         self.total_mass = total_mass
         
         # Initialize optimization variables and problem to use solvers from cp
-        self._x = cp.Variable(self._nx, value=phi_prior)
+        self._x = cp.Variable(self._nx, value=np.zeros(self._nx))
         self._objective = None
         self._constraints = []
         self._problem = None
     
-    ## --------- Unconstrained Solvers --------- ##
-    def normal_equation(self, lambda_reg=0.1):
-        """
-        Solve llsq using the normal equations with regularization.
-        """
-        # lambda_reg is regularization parameter
-        I = np.eye(self._nx)
-        return np.linalg.inv(self._A.T @ self._A + lambda_reg * I) @ self._A.T @ self._b
-    
-    def conjugate_gradient(self, tol=1e-6, max_iter=1000):
-        """
-        Solve the normal equations using the Conjugate Gradient method.
-        When A is full column rank.
-        """
-        # Compute A.T@A and A.T@b
-        AtA = self._A.T @ self._A
-        Atb = self._A.T @ self._b
-        
-        # Initialize x, r, p
-        x = np.zeros(self._nx)
-        r = Atb - AtA @ x
-        p = r.copy()
-        rs_old = np.dot(r.T, r)
-        
-        for i in range(max_iter):
-            Ap = AtA @ p
-            alpha = rs_old / np.dot(p.T, Ap)
-            x = x + alpha * p
-            r = r - alpha * Ap
-            rs_new = np.dot(r.T, r)
-            
-            if np.sqrt(rs_new) < tol:
-                print(f"Converged in {i+1} iterations")
-                break
-                
-            p = r + (rs_new / rs_old) * p
-            rs_old = rs_new
-            
-        return x
-    
+    ## --------- Unconstrained Solver --------- ##
     def solve_llsq_svd(self):        
         """
         Solve llsq using Singular Value Decomposition (SVD).
@@ -68,100 +29,8 @@ class Solvers():
         Sigma_inv = np.linalg.pinv(np.diag(Sigma))
         A_psudo = VT.T @ Sigma_inv @ U.T
         return A_psudo@self._b
-    
-    def wighted_llsq(self, weights=None):
-        """
-        Solve weighted least squares using cvxpy.
-        """
-        if weights is None:
-            weights = np.ones(self._A.shape[0])
-        
-        # Define the weighted least squares objective function
-        residuals = self._A @ self._x - self._b
-        self._objective = cp.Minimize(cp.sum_squares(cp.multiply(weights, residuals)))
-        self._problem = cp.Problem(self._objective)
-        self._problem.solve()
-        return self._x.value
-    
-    def ridge_regression(self, lambda_reg=0.1, x_init=None, warm_start=False):
-        """
-        Solve ridge regression using cvxpy with optional warm start.
-        """
-        # Set the initial value of the decision variable
-        if x_init is None:
-            x_init = np.zeros(self._nx)
-        self._x.value = x_init
-        
-        self._objective = cp.Minimize(cp.sum_squares(self._A @ self._x - self._b) + lambda_reg * cp.norm(self._x, 2))
-        self._problem = cp.Problem(self._objective)
-        self._problem.solve(solver=cp.SCS, warm_start=warm_start)
-        return self._x.value
 
-    ## --------- Constrained Solvers (LMI) --------- ##
-    def _construct_spatial_inertia_matrix(self, phi):
-        # Returns the spatila body inertia matrix (6x6)
-        mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
-        spatial_inertia_matrix = cp.vstack([
-            cp.hstack([I_xx, I_xy, I_xz, 0   , -h_z , h_y ]),
-            cp.hstack([I_xy, I_yy, I_yz, h_z ,  0   , -h_x]),
-            cp.hstack([I_xz, I_yz, I_zz, -h_y,  h_x ,  0  ]),
-            cp.hstack([0   , h_z , -h_y, mass,  0   ,  0  ]),
-            cp.hstack([-h_z, 0   , h_x , 0   ,  mass,  0  ]),
-            cp.hstack([h_y , -h_x, 0   , 0   ,  0   , mass])
-        ])
-        return spatial_inertia_matrix
-    
-    def solve_semi_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, use_const_pullback_approx=True):
-        """
-        Solve constrained least squares problem as LMI. Ensuring physical Semi-consistency.
-        """
-        mass_sum = 0  # To accumulate the total mass
-        self._constraints = []  # Ensure constraints list is fresh
-        bregman_divergence = 0  # Initialize Bregman divergence
-        
-        for j in range(0, self._nx, self._num_inertial_param):
-            # Extracting the Inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
-            phi_j = self._x[j:j+self._num_inertial_param]
-            ellipsoid_params = self._bounding_ellipsoids[j // self._num_inertial_param]
-
-            # Mass
-            mass = phi_j[0]
-            mass_sum += mass
-            
-            # Spatial inertia matrix (I: 6x6)
-            spatial_inertia_matrix = self._construct_spatial_inertia_matrix(phi_j)
-            self._constraints.append(spatial_inertia_matrix >> 0)  # Positive definite constraint
-            
-            # Add the CoM constraint
-            com_constraint = self._construct_com_constraint_matrix(phi_j, ellipsoid_params['semi_axes'], ellipsoid_params['center'])
-            self._constraints.append(com_constraint >> 0)
-        
-        # Add the total mass constraint
-        self._constraints.append(mass_sum == self.total_mass)
-        
-        # Regularization term based on Euclidean distance from phi_prior
-        phi_diff_all = self._x - self._phi_prior
-        euclidean_reg = cp.quad_form(phi_diff_all, np.eye(len(self._phi_prior)))
-
-        # Add objective function
-        self._objective = cp.Minimize(
-            cp.sum_squares(self._A @ self._x - self._b)/ self._A.shape[0] + lambda_reg * euclidean_reg
-        )
-        
-        self._problem = cp.Problem(self._objective, self._constraints)
-        
-        # Check if the problem is DPP compliant
-        if self._problem.is_dcp(dpp=True):
-            self._problem.solve(solver=cp.SCS, eps=epsillon, max_iters=max_iter, warm_start=False, verbose=True)
-        else:
-            raise ValueError("The problem is not DPP compliant.")
-        
-        if self._problem.status == cp.OPTIMAL or self._problem.status == cp.OPTIMAL_INACCURATE:
-            return self._x.value
-        else:
-            print("The problem did not solve to optimality. Status:", self._problem.status)
-            raise ValueError("The problem did not solve to optimality.")
-    
+    ## --------- Constrained Solver (LMI) --------- ##
     def _construct_pseudo_inertia_matrix(self, phi):
         # Retunrs the pseudo inertia matrix (J: 4x4)
         mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
@@ -189,11 +58,11 @@ class Solvers():
         com_constraint[0, 1:] = h.T - mass * center.T
         com_constraint[1:, 0] = h - mass * center
         com_constraint[1:, 1:] = mass * Qs
-        com_constraint_param = cp.Parameter(com_constraint.shape, symmetric=True, value=com_constraint)
+        com_constraint_param = cp.Parameter(com_constraint.shape, value=com_constraint, symmetric=True)
         return com_constraint_param
     
     def _pullback_metric(self, phi):
-        M = np.zeros((10, 10))
+        M = np.zeros((self._num_inertial_params, self._num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
         P_inv = np.linalg.inv(P)
         
@@ -218,60 +87,65 @@ class Solvers():
         
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, use_const_pullback_approx=True):
+    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
         mass_sum = 0  # To accumulate the total mass
-        bregman_divergence = 0  # Initialize Bregman divergence
-        self._constraints = []  # Ensure constraints list is fresh
+        regularization_term = 0
+        self._constraints = []
         
-        for j in range(0, self._nx, self._num_inertial_param):
+        for idx in range(0, self._nx, self._num_inertial_params):
             # Extracting the inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
-            phi_j = self._x[j: j+self._num_inertial_param]
-            phi_prior_j = self._phi_prior[j: j+self._num_inertial_param]
-            ellipsoid_params = self._bounding_ellipsoids[j // self._num_inertial_param]
+            phi_idx = self._x[idx: idx+self._num_inertial_params]
+            phi_prior_idx = self._phi_prior[idx: idx+self._num_inertial_params]
+            ellipsoid_params = self._bounding_ellipsoids[idx // self._num_inertial_params]
             
             # Mass
-            mass = phi_j[0]
+            mass = phi_idx[0]
             mass_sum += mass
             
             # Add pseudo inertia matrix (J:4x4) constraint
-            J = self._construct_pseudo_inertia_matrix(phi_j)
-            self._constraints.append(J >> 0) # Positive definite constraint
+            J = self._construct_pseudo_inertia_matrix(phi_idx)
+            self._constraints.append(J >> cp.Constant(0)) # Positive definite constraint
             
             # Add the CoM constraint
-            com_constraint = self._construct_com_constraint_matrix(phi_j, ellipsoid_params['semi_axes'], ellipsoid_params['center'])
-            self._constraints.append(com_constraint >> 0)
+            com_constraint = self._construct_com_constraint_matrix(phi_idx, ellipsoid_params['semi_axes'], ellipsoid_params['center'])
+            self._constraints.append(com_constraint >= cp.Constant(0))
             
             # Add the bounding ellipsoid constraint
             Q_ellipsoid = self._construct_ellipsoid_matrix(ellipsoid_params['semi_axes'], ellipsoid_params['center'])
-            self._constraints.append(cp.trace(J @ Q_ellipsoid) >= 0)
+            self._constraints.append(cp.trace(J @ Q_ellipsoid) >= cp.Constant(0))
             
-            # Bregman divergence regularization term
-            if use_const_pullback_approx:
-                M = self._pullback_metric(phi_prior_j)
-                phi_diff = phi_j - phi_prior_j
-                bregman_divergence += 0.5 * cp.quad_form(phi_diff, M)
-            else:
-                trace_prior = 0.5 * (phi_prior_j[4] + phi_prior_j[7] + phi_prior_j[9])
-                J_prior = self._construct_pseudo_inertia_matrix(phi_prior_j)
-                bregman_divergence += (-cp.log_det(J) + cp.log_det(J_prior) 
+            # Regularization terms
+            if reg_type=="constant_pullback":
+                # Constant pullback approximation
+                M = self._pullback_metric(phi_prior_idx)
+                phi_diff_idx = phi_idx - phi_prior_idx
+                regularization_term += 0.5 * cp.quad_form(phi_diff_idx, M)
+            elif reg_type=="entropic":
+                # Entropic (Bregman) divergence
+                trace_prior = 0.5 * (phi_prior_idx[4] + phi_prior_idx[7] + phi_prior_idx[9])
+                J_prior = self._construct_pseudo_inertia_matrix(phi_prior_idx)
+                regularization_term += (-cp.log_det(J) + cp.log_det(J_prior) 
                                        + cp.trace(cp.inv_pos(J_prior) @ J) - 4)
+        # Regularization based on Euclidean distance from phi_prior
+        if reg_type=="euclidean":
+            phi_diff_all = self._x - self._phi_prior
+            regularization_term = cp.quad_form(phi_diff_all, np.eye(self._x.shape[0]))
         
         # Add the total mass constraint
         self._constraints.append(mass_sum == self.total_mass)
         
-        # Add objective function
+        # Add objective function and instantiate problem
         self._objective = cp.Minimize(
-            cp.sum_squares(self._A @ self._x - self._b)/ self._A.shape[0] + lambda_reg * bregman_divergence
+            cp.sum_squares(self._A @ self._x - self._b)/ self._A.shape[0] + lambda_reg * regularization_term
         )
-        
         self._problem = cp.Problem(self._objective, self._constraints)
         
         # Check if the problem is DPP compliant
         if self._problem.is_dcp(dpp=True):
-            self._problem.solve(solver=cp.SCS, eps=epsillon, max_iters=max_iter, warm_start=False, verbose=True)
+            self._problem.solve(solver=cp.SCS, eps=epsillon, max_iters=max_iter, warm_start=True, verbose=True)
         else:
             raise ValueError("The problem is not DPP compliant.")
 
