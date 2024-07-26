@@ -1,4 +1,4 @@
-from src.solvers import Solvers
+from src.solver import Solver
 from src.sys_identification import SystemIdentification
 
 import numpy as np
@@ -96,7 +96,7 @@ class SystemParameters:
         Tau = np.hstack(self.Tau)
         
         # Solve the llsq problem
-        solver = Solvers(Y, Tau)
+        solver = Solver(Y, Tau)
         phi = solver.solve_llsq_svd()
 
         # self.print_inertial_parameters(phi)
