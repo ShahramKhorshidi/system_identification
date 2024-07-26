@@ -2,7 +2,7 @@ import numpy as np
 import cvxpy as cp
 
 
-class Solvers():
+class Solver():
     def __init__(self, A_matrix, b_vec, num_links, phi_prior, total_mass, bounding_ellipsoids):
         self._A = A_matrix
         self._b = b_vec
@@ -15,7 +15,7 @@ class Solvers():
         self.total_mass = total_mass
         
         # Initialize optimization variables and problem to use solvers from cp
-        self._x = cp.Variable(self._nx, value=np.zeros(self._nx))
+        self._x = cp.Variable(self._nx, value=phi_prior)
         self._objective = None
         self._constraints = []
         self._problem = None
@@ -82,12 +82,13 @@ class Solvers():
         # Ensure M is positive semi-definite
         eigenvalues = np.linalg.eigvals(M)
         if np.any(eigenvalues < 0):
-            shift = - np.min(eigenvalues) + 1e-6
+            shift = - np.min(eigenvalues) + 1e-5
             M = M + shift * np.eye(M.shape[0])
-        
+        min_eigenvalue = np.min(np.linalg.eigvals(M))
+        assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="constant_pullback"):
+    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="euclidean"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
