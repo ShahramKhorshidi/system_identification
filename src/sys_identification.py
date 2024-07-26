@@ -2,6 +2,7 @@ import yaml
 import trimesh
 import numpy as np
 import pinocchio as pin
+from pathlib import Path
 from numpy.linalg import pinv
 from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
@@ -370,3 +371,66 @@ class SystemIdentification(object):
         Y_proj = P @ Y
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
+
+    
+    def get_regressor_pin(self, q, dq, ddq, cnt, force, torque):
+        self._update_fk(q, dq, ddq)
+        tau = pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        J_c = self._compute_J_c(cnt)
+        lamda = self._compute_lambda(force, cnt)
+        F = J_c.T @ lamda# + self._S.T @ torque
+        return Y, tau, F
+
+
+if __name__ == "__main__":
+    path = Path.cwd()
+    robot_urdf = path/"files"/"solo12.urdf"
+    robot_config = path/"files"/"solo12_config.yaml"
+    robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
+    
+    # phi_prior = robot_sys_iden.get_phi_prior()
+    # robot_sys_iden.check_physical_consistency(phi_prior)
+    robot_sys_iden.compute_bounding_ellipsoids()
+    print(robot_sys_iden.get_bounding_ellipsoids())
+    # robot_q = np.loadtxt(path/"data"/"squat_robot_q.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    # robot_dq = np.loadtxt(path/"data"/"squat_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    # robot_ddq = np.loadtxt(path/"data"/"squat_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    # robot_tau = np.loadtxt(path/"data"/"squat_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    # robot_ee_force = np.loadtxt(path/"data"/"squat_robot_ee_force.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    # robot_contact = np.loadtxt(path/"data"/"squat_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, 3500]
+    
+    # Y, tau, F = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq, robot_contact, robot_ee_force, robot_tau)
+    # phi = robot_sys_iden.get_phi_prior()
+    # print(Y@phi-tau)
+    # print(tau)
+    # print(robot_tau)
+    
+    # robot_urdf = path/"files"/"2dof_plannar_robot.urdf"
+    # robot_config = path/"files"/"2dof_plannar_config.yaml"
+    # robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=False)
+    
+    # contact_config  = np.array([1, 1, 1, 1])
+    # robot_q = np.array([0.1, -0.2, 0.05])
+    # robot_dq = np.array([0.15, -0.25, 0.2])
+    # robot_ddq = np.array([0.5, 0.35, 0.1])
+    # robot_tau = np.array([0.1, -0.2])
+    # robot_ee_force = np.array([0.1, -0.2])
+    
+    # Y, tau, F = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq, contact_config, robot_ee_force, robot_tau)
+    # phi = robot_sys_iden.get_phi_prior()
+    # print(Y@phi)
+    # print(tau)
+    
+    # regressor, tau = robot_sys_iden.get_projected_llsq_problem(robot_q, robot_dq, robot_ddq,robot_tau, contact_config)
+    # print("#### Computed Regressor ####\n", regressor[1,10:])
+    # y, tau_rnea = robot_sys_iden.get_regressor_pin(robot_q, robot_dq, robot_ddq, robot_tau, contact_config)
+    # print("#### Pinocchio #### \n",y[1,10:])
+
+    # phi = np.array([1, 0.5, 0, 0, 0.1, 0, 0, 0.1, 0, 0.1,
+    #                 2, 1.0, 0, 0, 0.2, 0, 0, 0.2, 0, 0.2])
+    # print("My approach",regressor@phi)
+    # print("Calculated torqu", y@phi)
+    # print("RNEA", tau_rnea)
+    
+    
