@@ -2,6 +2,7 @@ import yaml
 import trimesh
 import numpy as np
 import pinocchio as pin
+from pathlib import Path
 from numpy.linalg import pinv
 from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
@@ -48,10 +49,13 @@ class SystemIdentification(object):
         
         # List of bounding ellipsoids for all links
         self._bounding_ellipsoids = []
-        for ellipsoid in robot_config.get('bounding_ellipsoids'):
-            ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
-            ellipsoid['center'] = np.array(ellipsoid['center'])
-            self._bounding_ellipsoids.append(ellipsoid)
+        if robot_config.get('bounding_ellipsoids') is None:
+            self.compute_bounding_ellipsoids()
+        else:
+            for ellipsoid in robot_config.get('bounding_ellipsoids'):
+                ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
+                ellipsoid['center'] = np.array(ellipsoid['center'])
+                self._bounding_ellipsoids.append(ellipsoid)
         
         # List of the end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
@@ -244,10 +248,16 @@ class SystemIdentification(object):
                     semi_axes = [radius, radius, radius]
                     center = visual.origin.xyz if visual.origin else [0, 0, 0]
                 elif isinstance(geometry, Mesh):
-                    mesh_path = geometry.filename
+                    path = Path.cwd()
+                    geometry_filename = str(geometry.filename)[10:]
+                    mesh_path = str(path/"files"/geometry_filename)
+                    # mesh_path = geometry.filename # TODO change this if solo is used
                     mesh = trimesh.load_mesh(mesh_path)
                     semi_axes = mesh.bounding_box.extents / 2
-                    origin =  visual.origin.xyz
+                    if visual.origin is None:
+                        origin = [0.0, 0.0, 0.0]
+                    else:
+                        origin = visual.origin.xyz
                     center =  mesh.bounding_box.centroid + origin
                 else:
                     raise ValueError(f"Unsupported geometry type for link {link.name}")
