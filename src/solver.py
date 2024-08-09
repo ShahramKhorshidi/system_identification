@@ -3,12 +3,12 @@ import cvxpy as cp
 
 
 class Solver():
-    def __init__(self, A_matrix, b_vec, num_links, phi_prior, total_mass, bounding_ellipsoids):
-        self._A = A_matrix
-        self._b = b_vec
-        self._nx = self._A.shape[1]
+    def __init__(self, regressor, tau_vec, num_links, phi_prior, total_mass, bounding_ellipsoids, B_v = None, B_c = None):
+        self._Y = regressor
+        self._tau = tau_vec
+        self._nx = self._Y.shape[1]
         self._num_links = num_links
-        self._num_inertial_params = self._A.shape[1] // self._num_links
+        self._num_inertial_params = self._Y.shape[1] // self._num_links
         
         self._bounding_ellipsoids = bounding_ellipsoids
         self._phi_prior = phi_prior  # Prior inertial parameters
@@ -16,6 +16,13 @@ class Solver():
         
         # Initialize optimization variables and problem to use solvers from cp
         self._x = cp.Variable(self._nx, value=phi_prior)
+        self._identify_fric = (B_v is not None) and (B_c is not None)
+        if self._identify_fric:
+            self._B_v = B_v
+            self._B_c = B_c
+            self.ndof = B_v.shape[1]
+            self._b_v = cp.Variable(self.ndof) # Viscous friction coefficient (Nm / (rad/s))
+            self._b_c = cp.Variable(self.ndof) # Coulomb friction coefficient (Nm)
         self._objective = None
         self._constraints = []
         self._problem = None
@@ -25,10 +32,10 @@ class Solver():
         """
         Solve llsq using Singular Value Decomposition (SVD).
         """
-        U, Sigma, VT = np.linalg.svd(self._A, full_matrices=False)
+        U, Sigma, VT = np.linalg.svd(self._Y, full_matrices=False)
         Sigma_inv = np.linalg.pinv(np.diag(Sigma))
         A_psudo = VT.T @ Sigma_inv @ U.T
-        return A_psudo@self._b
+        return A_psudo@self._tau
 
     ## --------- Constrained Solver (LMI) --------- ##
     def _construct_pseudo_inertia_matrix(self, phi):
@@ -88,7 +95,7 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="euclidean"):
+    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
@@ -128,8 +135,7 @@ class Solver():
                 # Entropic (Bregman) divergence
                 trace_prior = 0.5 * (phi_prior_idx[4] + phi_prior_idx[7] + phi_prior_idx[9])
                 J_prior = self._construct_pseudo_inertia_matrix(phi_prior_idx)
-                regularization_term += (-cp.log_det(J) + cp.log_det(J_prior) 
-                                       + cp.trace(cp.inv_pos(J_prior) @ J) - 4)
+                regularization_term += -cp.log_det(J) + cp.log_det(J_prior) + cp.trace(J_prior @ J) - 4
         # Regularization based on Euclidean distance from phi_prior
         if reg_type=="euclidean":
             phi_diff_all = self._x - self._phi_prior
@@ -139,9 +145,14 @@ class Solver():
         self._constraints.append(mass_sum == self.total_mass)
         
         # Add objective function and instantiate problem
-        self._objective = cp.Minimize(
-            cp.sum_squares(self._A @ self._x - self._b)/ self._A.shape[0] + lambda_reg * regularization_term
-        )
+        if self._identify_fric:
+            self._constraints.append(self._b_v >= cp.Constant(0))
+            self._constraints.append(self._b_c >= cp.Constant(0))
+            error = cp.sum_squares(self._Y @ self._x + self._B_v @ self._b_v + self._B_c @ self._b_c - self._tau) / self._Y.shape[0]
+        else:
+            error = cp.sum_squares(self._Y @ self._x - self._tau) / self._Y.shape[0]
+        
+        self._objective = cp.Minimize(error + lambda_reg * regularization_term)
         self._problem = cp.Problem(self._objective, self._constraints)
         
         # Check if the problem is DPP compliant
@@ -161,8 +172,11 @@ class Solver():
             print("Number of iterations:", solver_info.num_iters)
             print("########################################")
             
-            # Return the value of the decision variable
-            return self._x.value
+            if self._identify_fric:
+                # Return the value of the decision variables
+                return self._x.value, self._b_v.value, self._b_c.value
+            else:
+                return self._x.value
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")

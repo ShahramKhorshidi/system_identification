@@ -28,17 +28,25 @@ class SystemIdentification(object):
         
         # Selection matrix
         if floating_base:
-            self._S = np.zeros((self.nv-6, self.nv))
-            self._S[:, 6:] = np.eye(self.nv-6)
+            self._base_dof = 6
+            self.joints_dof = self.nv - self._base_dof
+            self._S = np.zeros((self.joints_dof, self.nv))
+            self._S[:, self._base_dof:] = np.eye(self.joints_dof)
         else:
-            self._S = np.eye(self.nv)
-        
+            self._base_dof = 0
+            self.joints_dof = self.nv
+            self._S = np.eye(self.joints_dof)
+                          
         # Initialize the regressor matrix with proper dimension
         # inertial parameters for each link, phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
         self._num_inertial_params = 10
         self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
         self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
         self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
+        
+        # Initialize the friction regressors
+        self.B_v = np.eye(self.joints_dof) # Viscous friction
+        self.B_c = np.eye(self.joints_dof) # Coulomb friction
         
         # Load robot configuration from YAML file
         with open(config_file, 'r') as file:
@@ -273,7 +281,7 @@ class SystemIdentification(object):
             self._phi_prior[j+9] = self._rmodel.inertias[i].inertia[2, 2]
         return self._phi_prior
     
-    def check_physical_consistency(self, phi):
+    def get_physical_consistency(self, phi):
         # Returns the minimum eigenvalue of matrices in LMI constraints
         # For phiysical consistency all values should be non-negative
         eigval_I_bar = []
@@ -371,8 +379,15 @@ class SystemIdentification(object):
         Y_proj = P @ Y
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
-
     
+    def get_proj_friction_regressors(self, q, dq, ddq, cnt):
+        # Returns the viscous and Coulumb friction matrices projected into the null-space of contatc Jacobian
+        self._update_fk(q, dq, ddq)
+        P = self._compute_null_space_proj(cnt)
+        B_v = P @ self._S.T @ np.diag(dq[self._base_dof:])
+        B_c = P @ self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
+        return B_v, B_c
+        
     def get_regressor_pin(self, q, dq, ddq, cnt, force, torque):
         self._update_fk(q, dq, ddq)
         tau = pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
