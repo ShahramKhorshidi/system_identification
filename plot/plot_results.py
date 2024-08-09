@@ -318,14 +318,14 @@ if __name__ == "__main__":
     path = Path.cwd()
     
     motion_name = "trot"
-    q, dq, ddq, torque, force, cnt = read_data(path/"data", motion_name, False)
+    q, dq, ddq, torque, force, cnt = read_data(path/"data"/"solo", motion_name, False)
     
     identified_params = "noisy"
-    phi_prior = np.loadtxt(path/"data"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
-    phi_full_llsq = np.loadtxt(path/"data"/f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
-    phi_full_lmi = np.loadtxt(path/"data"/f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_llsq = np.loadtxt(path/"data"/f"{identified_params}_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_lmi = np.loadtxt(path/"data"/f"{identified_params}_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = np.loadtxt(path/"data"/"solo"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_full_llsq = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
+    phi_full_lmi = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_llsq = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_lmi = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
     
     # Instantiate the identification problem
     robot_urdf = path/"files"/"solo12.urdf"
@@ -344,13 +344,13 @@ if __name__ == "__main__":
     print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
     
     # Plot physical consistency
-    I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.check_physical_consistency(phi_prior)
+    I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
     plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Prior_physical consistency")
     
-    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.check_physical_consistency(phi_proj_llsq)
+    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
     plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
 
-    I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.check_physical_consistency(phi_proj_lmi)
+    I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
     plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Constrained LMI")
     
     # # Plots
