@@ -14,8 +14,8 @@ def read_data(path, motion_name, filter_type):
     robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
     if filter_type=="butterworth":
         # Butterworth filter parameters
-        order = 10  # Filter order
-        cutoff_freq = 0.4  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        order = 5  # Filter order
+        cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
         # Apply Butterworth filter to each data (row in the data array)
@@ -69,11 +69,11 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 
 def main():
     path = "/home/khorshidi/git/system_identification/"
-    motion_name = "noisy"
+    motion_name = "spot"
     filter_type = "butterworth" # "savitzky" "butterworth"
-    q, dq, ddq, torque, force, cnt = read_data(path+"data/solo/", motion_name, filter_type)
-    robot_urdf = path+"files/"+"solo12.urdf"
-    robot_config = path+"files/"+"solo12_config.yaml"
+    q, dq, ddq, torque, force, cnt = read_data(path+"data/spot/", motion_name, filter_type)
+    robot_urdf = path+"files/"+"spot.urdf"
+    robot_config = path+"files/"+"spot_config.yaml"
     
     # Instantiate the identification problem
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)

@@ -7,7 +7,7 @@ from scipy.signal import savgol_filter
 
 def preprocess():
     # Read the data.
-    path = "/home/khorshidi/git/system_identification/data/"
+    path = "/home/khorshidi/git/system_identification/data/solo"
 
     robot_q = []
     robot_dq = []
@@ -39,7 +39,7 @@ def preprocess():
     np.savetxt(path+"solo_robot_contact.dat", contact, delimiter='\t')
 
 def plot_data():
-    path = Path.cwd()/"data/"
+    path = Path.cwd()/"data/solo/"
     robot_q = np.loadtxt(path/"noisy_robot_q.dat", delimiter='\t', dtype=np.float64)
     robot_dq = np.loadtxt(path/"noisy_robot_dq.dat", delimiter='\t', dtype=np.float64)
     robot_ddq = np.loadtxt(path/"noisy_robot_ddq.dat", delimiter='\t', dtype=np.float64)
@@ -56,7 +56,6 @@ def plot_data():
     b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
     # Apply Butterworth filter to each state (row in the data array)
     butter_signal = signal.filtfilt(b, a, orig_signal, axis=1)
-
 
     # Apply Savitzky-Golay filter
     window_length = 21  # window size (must be odd and greater than polyorder)
