@@ -1,0 +1,7 @@
+robot:
+  mass: 2.501304 # Kg
+  end_effectors_frame_names:
+    - "HL_ANKLE"
+    - "HR_ANKLE"
+    - "FL_ANKLE"
+    - "FR_ANKLE"
