@@ -57,10 +57,11 @@ class SystemIdentification(object):
         
         # List of bounding ellipsoids for all links
         self._bounding_ellipsoids = []
-        for ellipsoid in robot_config.get('bounding_ellipsoids'):
-            ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
-            ellipsoid['center'] = np.array(ellipsoid['center'])
-            self._bounding_ellipsoids.append(ellipsoid)
+        if robot_config.get('bounding_ellipsoids') is not None:
+            for ellipsoid in robot_config.get('bounding_ellipsoids'):
+                ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
+                ellipsoid['center'] = np.array(ellipsoid['center'])
+                self._bounding_ellipsoids.append(ellipsoid)
         
         # List of the end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
@@ -69,6 +70,9 @@ class SystemIdentification(object):
             for name in self._end_eff_frame_names
         ]
         self._nb_ee = len(self._end_eff_frame_names)
+        
+        # List of link names
+        self._link_names = robot_config.get('link_names', [])
         
         self._init_motion_subspace_dict()
         # self._show_kinematic_tree()
@@ -237,6 +241,7 @@ class SystemIdentification(object):
         robot = URDF.from_xml_file(self._urdf_path)
         self._bounding_ellipsoids = []
         for link in robot.links:
+            # if link.name in self._link_names:
             for visual in link.visuals:
                 geometry = visual.geometry
                 if isinstance(geometry, Box):
@@ -400,14 +405,15 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     path = Path.cwd()
-    robot_urdf = path/"files"/"solo12.urdf"
-    robot_config = path/"files"/"solo12_config.yaml"
+    robot_urdf = path/"files/go1_description"/"go1.urdf"
+    robot_config = path/"files/go1_description"/"go1_config.yaml"
     robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
-    # phi_prior = robot_sys_iden.get_phi_prior()
-    # robot_sys_iden.check_physical_consistency(phi_prior)
+    phi_prior = robot_sys_iden.get_phi_prior()
+    # print(robot_sys_iden.get_physical_consistency(phi_prior))
     robot_sys_iden.compute_bounding_ellipsoids()
     print(robot_sys_iden.get_bounding_ellipsoids())
+    
     # robot_q = np.loadtxt(path/"data"/"squat_robot_q.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_dq = np.loadtxt(path/"data"/"squat_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_ddq = np.loadtxt(path/"data"/"squat_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, 3500]

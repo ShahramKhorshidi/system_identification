@@ -1,8 +1,0 @@
-robot:
-  name: "go1"
-  mass: 14.100428 # Kg
-  end_effectors_frame_names:
-    - "FL_foot_fixed"
-    - "FR_foot_fixed"
-    - "RL_foot_fixed"
-    - "RR_foot_fixed"

@@ -1,0 +1,9 @@
+robot:
+  name: "spot"
+  mass: 50.34 # Kg
+  end_effectors_frame_names:
+    - "fl_foot"
+    - "fr_foot"
+    - "rl_foot"
+    - "rr_foot"
+  bounding_ellipsoids:

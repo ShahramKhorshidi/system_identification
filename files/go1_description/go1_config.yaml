@@ -1,0 +1,22 @@
+robot:
+  name: "go1"
+  mass: 13.100528 # 14.100428 # Kg
+  end_effectors_frame_names:
+    - "FL_foot"
+    - "FR_foot"
+    - "RL_foot"
+    - "RR_foot"
+  link_names:
+    - "trunk"
+    - "FL_hip"
+    - "FL_thigh"
+    - "FL_calf"
+    - "FR_hip"
+    - "FR_thigh"
+    - "FR_calf"
+    - "RL_hip"
+    - "RL_thigh"
+    - "RL_calf"
+    - "RR_hip"
+    - "RR_thigh"
+    - "RR_calf"

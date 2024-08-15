@@ -1,8 +1,0 @@
-robot:
-  name: "spot"
-  mass: 32.86 # Kg
-  end_effectors_frame_names:
-    - "front_left_lower_leg"
-    - "front_right_lower_leg"
-    - "rear_left_lower_leg"
-    - "rear_right_lower_leg"
