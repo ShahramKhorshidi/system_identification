@@ -88,7 +88,7 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="euclidean"):
+    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
         """
