@@ -61,4 +61,4 @@ class Validation:
         for i in range(0, len(x1)):
             mse = mse + (x1[i]-x2[i])**2
         mse = mse / len(x1)
-        return mse
+        return np.sqrt(mse)

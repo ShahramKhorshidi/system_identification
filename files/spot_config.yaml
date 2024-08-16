@@ -1,16 +1,16 @@
 robot:
   name: "spot"
-  mass: 32.86 # Kg
+  mass: 34 # Kg
   end_effectors_frame_names:
-    - "front_left_lower_leg"
-    - "front_right_lower_leg"
-    - "rear_left_lower_leg"
-    - "rear_right_lower_leg"
-  bounding_ellipsoids:
-    - semi_axes: [0.0, 0.0, 0.0] # base_link
-      center: [0.0, 0.0, 0.0]
-    - semi_axes: [0.0, 0.0, 0.0] # FL_SHOULDER
-      center: [0.0, 0.0, 0.0]
+    - "front_left_foot"
+    - "front_right_foot"
+    - "rear_left_foot"
+    - "rear_right_foot"
+  # bounding_ellipsoids:
+  #   - semi_axes: [0.0, 0.0, 0.0] # base_link
+  #     center: [0.0, 0.0, 0.0]
+  #   - semi_axes: [0.0, 0.0, 0.0] # FL_SHOULDER
+  #     center: [0.0, 0.0, 0.0]
   #   - semi_axes: [0.0, 0.0, 0.0] # FL_UPPER_LEG
   #     center: [0.0, 0.0, 0.0]
   #   - semi_axes: [0.0, 0.0, 0.0] # FL_LOWER_LEG

@@ -118,6 +118,22 @@
       <inertia ixx="0.003999022654901177" ixy="0.0" ixz="0.0" iyy="0.0040503157598010785" iyz="0.0" izz="0.0001493402097647426"/>
     </inertial>
   </link>
+  <!-- Joint between the lower leg and the ankle,
+      this is only a dummy joint such that we
+      can assign coordinate frames to foot-->
+  <joint name="front_left_ankle" type="fixed">
+    <parent link="front_left_lower_leg"/>
+    <child link="front_left_foot"/>
+    <origin rpy="0 0 0" xyz="0 0 -0.35"/>
+    <limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+  </joint>
+  <link name="front_left_foot">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+  </link>
   <joint name="front_left_knee" type="revolute">
     <origin rpy="0 0 0" xyz="0.025 0.000 -0.3205"/>
     <axis xyz="0 1 0"/>
@@ -189,6 +205,22 @@
       <origin rpy="-0.007266925694167092 -0.009591807116834161 0.00035255970529224356" xyz="0.00225794012658298 4.607596201822162e-05 -0.1800822913646698"/>
       <mass value="0.35"/>
       <inertia ixx="0.003999022654901177" ixy="0.0" ixz="0.0" iyy="0.0040503157598010785" iyz="0.0" izz="0.0001493402097647426"/>
+    </inertial>
+  </link>
+  <!-- Joint between the lower leg and the ankle,
+      this is only a dummy joint such that we
+      can assign coordinate frames to foot-->
+  <joint name="front_right_ankle" type="fixed">
+    <parent link="front_right_lower_leg"/>
+    <child link="front_right_foot"/>
+    <origin rpy="0 0 0" xyz="0 0 -0.35"/>
+    <limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+  </joint>
+  <link name="front_right_foot">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
     </inertial>
   </link>
   <joint name="front_right_knee" type="revolute">
@@ -264,6 +296,22 @@
       <inertia ixx="0.003999022654901177" ixy="0.0" ixz="0.0" iyy="0.0040503157598010785" iyz="0.0" izz="0.0001493402097647426"/>
     </inertial>
   </link>
+  <!-- Joint between the lower leg and the ankle,
+      this is only a dummy joint such that we
+      can assign coordinate frames to foot-->
+  <joint name="rear_left_ankle" type="fixed">
+    <parent link="rear_left_lower_leg"/>
+    <child link="rear_left_foot"/>
+    <origin rpy="0 0 0" xyz="0 0 -0.35"/>
+    <limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+  </joint>
+  <link name="rear_left_foot">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
+    </inertial>
+  </link>
   <joint name="rear_left_knee" type="revolute">
     <origin rpy="0 0 0" xyz="0.025 0.000 -0.3205"/>
     <axis xyz="0 1 0"/>
@@ -335,6 +383,22 @@
       <origin rpy="-0.007266925694167092 -0.009591807116834161 0.00035255970529224356" xyz="0.00225794012658298 4.607596201822162e-05 -0.1800822913646698"/>
       <mass value="0.35"/>
       <inertia ixx="0.003999022654901177" ixy="0.0" ixz="0.0" iyy="0.0040503157598010785" iyz="0.0" izz="0.0001493402097647426"/>
+    </inertial>
+  </link>
+  <!-- Joint between the lower leg and the ankle,
+      this is only a dummy joint such that we
+      can assign coordinate frames to foot-->
+  <joint name="rear_right_ankle" type="fixed">
+    <parent link="rear_right_lower_leg"/>
+    <child link="rear_right_foot"/>
+    <origin rpy="0 0 0" xyz="0 0 -0.35"/>
+    <limit effort="1000" lower="-10" upper="10" velocity="1000"/>
+  </joint>
+  <link name="rear_right_foot">
+    <inertial>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <mass value="0.0"/>
+      <inertia ixx="0.0" ixy="0.0" ixz="0.0" iyy="0.0" iyz="0.0" izz="0.0"/>
     </inertial>
   </link>
   <joint name="rear_right_knee" type="revolute">

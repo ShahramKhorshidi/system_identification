@@ -249,7 +249,7 @@ class SystemIdentification(object):
                     center = visual.origin.xyz if visual.origin else [0, 0, 0]
                 elif isinstance(geometry, Mesh):
                     path = Path.cwd()
-                    geometry_filename = str(geometry.filename)[10:]
+                    geometry_filename = str(geometry.filename)[10:] # spot_description/meshes/base/visual/part.obj
                     mesh_path = str(path/"files"/geometry_filename)
                     # mesh_path = geometry.filename # TODO change this if solo is used
                     mesh = trimesh.load_mesh(mesh_path)
