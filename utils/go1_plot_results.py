@@ -10,7 +10,6 @@ def read_data(path, motion_name, data_noisy):
     robot_dq = np.loadtxt(path/f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)
     robot_ddq = np.loadtxt(path/f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)
     robot_tau = np.loadtxt(path/f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_ee_force = np.loadtxt(path/f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float32)
     robot_contact = np.loadtxt(path/f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
     if data_noisy:
         # Butterworth filter parameters
@@ -22,8 +21,7 @@ def read_data(path, motion_name, data_noisy):
         robot_dq = signal.filtfilt(b, a, robot_dq, axis=1)
         robot_ddq = signal.filtfilt(b, a, robot_ddq, axis=1)
         robot_tau = signal.filtfilt(b, a, robot_tau, axis=1)
-        robot_ee_force = signal.filtfilt(b, a, robot_ee_force, axis=1)
-    return robot_q, robot_dq, robot_ddq, robot_tau, robot_ee_force, robot_contact
+    return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
 def overall_rmse(q, dq, ddq, torque, cnt, phi, sys_idnt):
     predicted = []
@@ -317,53 +315,46 @@ def plot_eigval(I_bar, I, J, C, trace, title):
 if __name__ == "__main__":
     path = Path.cwd()
     
-    motion_name = "trot"
-    q, dq, ddq, torque, force, cnt = read_data(path/"data"/"solo", motion_name, False)
+    motion_name = "go1"
+    q, dq, ddq, torque, cnt = read_data(path/"data"/"go1", motion_name, False)
     
-    identified_params = "noisy"
-    phi_prior = np.loadtxt(path/"data"/"solo"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
-    phi_full_llsq = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
-    phi_full_lmi = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_llsq = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_lmi = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = np.loadtxt(path/"data"/"go1"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_llsq = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
+    # phi_proj_lmi = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
     
     # Instantiate the identification problem
-    robot_urdf = path/"files"/"solo_description"/"solo12.urdf"
-    robot_config = path/"files"/"solo_description"/"solo12_config.yaml"
+    robot_urdf = path/"files"/"go1_description"/"go1.urdf"
+    robot_config = path/"files"/"go1_description"/"go1_config.yaml"
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # RMSE Results
-    rmse_full_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_full_llsq, sys_idnt)
-    rmse_full_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_full_lmi, sys_idnt)
     rmse_proj_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt)
-    rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
+    # rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
     
-    print("------ Full Sensing ------")
-    print("RMSE llsq: ", rmse_full_llsq, "RMSE LMI: ", rmse_full_lmi)
     print("\n------ Projected ------")
-    print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
+    # print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
     
     # Plot physical consistency
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
     plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Prior_physical consistency")
     
-    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_full_lmi)
-    plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Full Sensing LMI")
+    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
+    plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
 
-    I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
-    plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Projected LMI")
+    # I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
+    # plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Constrained LMI")
     
-    # # Plots
-    plot_mass(phi_prior, phi_full_lmi, "Full Sensing LMI_Mass")
-    plot_mass(phi_prior, phi_proj_lmi, "Projected LMI_Mass")
+    # # # Plots
+    plot_mass(phi_prior, phi_proj_llsq, "Projected llsq_Mass")
+    # plot_mass(phi_prior, phi_proj_lmi, "Projected LMI_Mass")
     
-    plot_h(phi_prior, phi_full_lmi, "Full Sensing LMI_First Moment")
-    plot_h(phi_prior, phi_proj_lmi, "Projected LMI_First moment")
+    plot_h(phi_prior, phi_proj_llsq, "Projected llsq_First Moment")
+    # plot_h(phi_prior, phi_proj_lmi, "Projected LMI_First moment")
     
-    plot_inertia(phi_prior, phi_full_lmi, "Full Sensing LMI_Second Moment")
-    plot_inertia(phi_prior, phi_proj_lmi, "Projected LMI_Second Moment")
+    plot_inertia(phi_prior, phi_proj_llsq, "Projected llsq_Second Moment")
+    # plot_inertia(phi_prior, phi_proj_lmi, "Projected LMI_Second Moment")
 
-    plot_proj_torques(q, dq, ddq, torque, cnt, phi_full_lmi, sys_idnt, "Full Sensing")
-    plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
+    plot_proj_torques(q, dq, ddq, torque, cnt, phi_prior, sys_idnt, "Phi prior")
+    # plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
     
     plt.show()

@@ -47,7 +47,7 @@ def plot_data():
     robot_ee_force = np.loadtxt(path/"noisy_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
     robot_contact = np.loadtxt(path/"noisy_robot_contact.dat", delimiter='\t', dtype=np.int8)
 
-    orig_signal = robot_tau
+    orig_signal = robot_ddq
     # Butterworth filter parameters
     order = 10  # Filter order
     cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
@@ -61,7 +61,7 @@ def plot_data():
     window_length = 21  # window size (must be odd and greater than polyorder)
     polyorder = 10      # order of the polynomial fit
 
-    savavitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
+    savitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
 
     # Plot the data
     fig, axs = plt.subplots(6, figsize=(10, 20))
@@ -70,7 +70,7 @@ def plot_data():
         j = i
         axs[i].plot(orig_signal[j, :],label='Original' )
         axs[i].plot(butter_signal[j, :], label='Butter')
-        axs[i].plot(savavitzky_signal[j, :], label='Savitzky-Golay')
+        axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_title(f'End Effector Force Dimension {i+1}')
         axs[i].set_xlabel('Sample')
         axs[i].set_ylabel('Force')

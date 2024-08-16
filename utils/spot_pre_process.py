@@ -25,10 +25,14 @@ def preprocessing(path, motion_name):
     ddq_base_vision = df.iloc[:, 94:100].to_numpy()
     ddq_joints = df.iloc[:, 82:94].to_numpy()
     
+    cnt = df.iloc[:, 124:128].to_numpy()
+    tau = df.iloc[:, 112:124].to_numpy().T
+    
     time = np.zeros((T), dtype=np.float32)
     q = np.zeros((19, T), dtype=np.float32)
     dq = np.zeros((18, T), dtype=np.float32)
     ddq = np.zeros((18, T), dtype=np.float32)
+    contact = np.zeros((4, T), dtype=np.float32)
     
     for i in range(T):
         time[i] = t_s[i] - t_s[0] + t_ns[i] *1e-9
@@ -37,25 +41,18 @@ def preprocessing(path, motion_name):
         q[:7, i] = q_base_vision[i, :]
         q[7:, i] = q_joints[i, :]
         
-        # Get the rotation matrix of the base
-        quat = pin.Quaternion(q[3:7, i])
-        quat.normalize()
-        R = quat.toRotationMatrix()
-        
         # Robot velocity
-        dq[0:3, i] = R.T @ dq_base_vision[i, 0:3]
-        dq[3:6, i] = R.T @ dq_base_vision[i, 3:6]
+        dq[:6, i] = dq_base_vision[i, :]
         dq[6:, i] = dq_joints[i, :]
         
         # Robot acceleration
-        ddq[0:3, i] = R.T @ ddq_base_vision[i, 0:3]
-        ddq[3:6, i] = R.T @ ddq_base_vision[i, 3:6]
+        ddq[:6, i] = ddq_base_vision[i, :]
         ddq[6:, i] = ddq_joints[i, :]
-
-    tau = df.iloc[:, 112:124].to_numpy().T
-    cnt = df.iloc[:, 124:128].to_numpy().T
-    
-    return time, q, dq, ddq, tau, cnt
+        for idx in range(4):
+            if cnt[i, idx] == 1:
+                contact[idx, i] = 1
+        
+    return time, q, dq, ddq, tau, contact
 
 def finite_diff(time, dq):
     T = dq.shape[0]
@@ -85,16 +82,16 @@ def plot(data):
     window_length = 21  # window size (must be odd and greater than polyorder)
     polyorder = 10      # order of the polynomial fit
 
-    savavitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
+    savitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
 
     # Plot the data
-    fig, axs = plt.subplots(7, figsize=(10, 20))
+    fig, axs = plt.subplots(6, figsize=(10, 20))
 
-    for i in range(7):
+    for i in range(6):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original')
-        axs[i].plot(butter_signal[j, :], label='Butter')
-        # axs[i].plot(savavitzky_signal[j, :], label='Savitzky-Golay')
+        # axs[i].plot(butter_signal[j, :], label='Butter')
+        # axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_xlabel('Sample')
         axs[0].legend()
     plt.tight_layout()
@@ -120,8 +117,8 @@ if __name__ == "__main__":
     path = "/home/khorshidi/git/system_identification/data/spot/"
     
     time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/spot_squat.csv")
-    # time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/spot_pose.csv")
-    # time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/spot_crawl_speed_slow_height_high_turn_around.csv")
+    time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/spot_pose.csv")
+    time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/spot_walk_speed_slow_height_high_turn_around.csv")
     
     # q = np.hstack((q_0, q_1, q_2))
     # dq = np.hstack((dq_0, dq_1, dq_2))
@@ -136,4 +133,4 @@ if __name__ == "__main__":
     # np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
     
     # ddq_diff = finite_diff(time, dq)
-    plot(q_0)
+    plot(ddq_0)

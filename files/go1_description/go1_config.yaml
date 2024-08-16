@@ -1,6 +1,6 @@
 robot:
   name: "go1"
-  mass: 13.100528 # 14.100428 # Kg
+  mass: 13.2 # 13.100528 # 14.100428 # Kg
   end_effectors_frame_names:
     - "FL_foot"
     - "FR_foot"
