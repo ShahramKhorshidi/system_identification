@@ -6,12 +6,11 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, filter_type):
-    i = 2000
-    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, :i]
+    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)
+    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)
+    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)
+    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
     
     if filter_type=="butterworth":
         # Butterworth filter parameters
@@ -60,6 +59,13 @@ def main():
     motion_name = "go1"
     filter_type = "butterworth" # "savitzky" "butterworth"
     q, dq, ddq, torque, cnt = read_data(path+"data/go1/", motion_name, filter_type)
+    
+    q = q[:, ::5]
+    dq = dq[:, ::5]
+    ddq = ddq[:, ::5]
+    torque = torque[:, ::5]
+    cnt = cnt[:, ::5] 
+    
     robot_urdf = path+"files/go1_description/"+"go1.urdf"
     robot_config = path+"files/go1_description/"+"go1_config.yaml"
     
@@ -71,7 +77,7 @@ def main():
     
     # Prior values for the inertial parameters
     phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"data/spot/"+"phi_prior.dat", phi_prior, delimiter='\t')
+    np.savetxt(path+"data/go1/"+"phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
     sys_idnt.compute_bounding_ellipsoids()
@@ -87,10 +93,10 @@ def main():
     solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids) #, B_v=B_v, B_c=B_c)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
-    np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
+    np.savetxt(path+"data/go1/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
-    np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
+    phi_proj_lmi = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
+    np.savetxt(path+"data/go1/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     
     print("b_v:\n", b_v)
     print("b_c:\n", b_c)
