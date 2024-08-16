@@ -3,16 +3,16 @@ import cvxpy as cp
 
 
 class Solver():
-    def __init__(self, regressor, tau_vec, num_links, phi_prior, total_mass, bounding_ellipsoids, B_v = None, B_c = None):
+    def __init__(self, regressor, tau_vec, num_links, phi_prior, total_mass, bounding_ellipsoids, B_v=None, B_c=None):
         self._Y = regressor
         self._tau = tau_vec
         self._nx = self._Y.shape[1]
         self._num_links = num_links
         self._num_inertial_params = self._Y.shape[1] // self._num_links
         
-        self._bounding_ellipsoids = bounding_ellipsoids
         self._phi_prior = phi_prior  # Prior inertial parameters
         self.total_mass = total_mass
+        self._bounding_ellipsoids = bounding_ellipsoids
         
         # Initialize optimization variables and problem to use solvers from cp
         self._x = cp.Variable(self._nx, value=phi_prior)

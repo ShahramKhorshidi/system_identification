@@ -241,31 +241,31 @@ class SystemIdentification(object):
         robot = URDF.from_xml_file(self._urdf_path)
         self._bounding_ellipsoids = []
         for link in robot.links:
-            # if link.name in self._link_names:
-            for visual in link.visuals:
-                geometry = visual.geometry
-                if isinstance(geometry, Box):
-                    size = np.array(geometry.size)
-                    semi_axes = size / 2
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Cylinder):
-                    radius = geometry.radius
-                    length = geometry.length
-                    semi_axes = [radius, radius, length / 2]
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Sphere):
-                    radius = geometry.radius
-                    semi_axes = [radius, radius, radius]
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Mesh):
-                    mesh_path = geometry.filename
-                    mesh = trimesh.load_mesh(mesh_path)
-                    semi_axes = mesh.bounding_box.extents / 2
-                    origin =  visual.origin.xyz
-                    center =  mesh.bounding_box.centroid + origin
-                else:
-                    raise ValueError(f"Unsupported geometry type for link {link.name}")
-                self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
+            if link.name in self._link_names:
+                for visual in link.visuals:
+                    geometry = visual.geometry
+                    if isinstance(geometry, Box):
+                        size = np.array(geometry.size)
+                        semi_axes = size / 2
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Cylinder):
+                        radius = geometry.radius
+                        length = geometry.length
+                        semi_axes = [radius, radius, length / 2]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Sphere):
+                        radius = geometry.radius
+                        semi_axes = [radius, radius, radius]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Mesh):
+                        mesh_path = geometry.filename
+                        mesh = trimesh.load_mesh(mesh_path)
+                        semi_axes = mesh.bounding_box.extents / 2
+                        origin =  visual.origin.xyz
+                        center =  mesh.bounding_box.centroid + origin
+                    else:
+                        raise ValueError(f"Unsupported geometry type for link {link.name}")
+                    self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
 
     def get_robot_mass(self):
         return self._robot_mass
@@ -405,15 +405,16 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     path = Path.cwd()
-    robot_urdf = path/"files/go1_description"/"go1.urdf"
-    robot_config = path/"files/go1_description"/"go1_config.yaml"
+    robot_urdf = path/"files/solo_description"/"solo12.urdf"
+    robot_config = path/"files/solo_description"/"solo12_config.yaml"
     robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     phi_prior = robot_sys_iden.get_phi_prior()
-    # print(robot_sys_iden.get_physical_consistency(phi_prior))
+    print(phi_prior)
+
     robot_sys_iden.compute_bounding_ellipsoids()
-    print(robot_sys_iden.get_bounding_ellipsoids())
-    
+    ellipsoid = robot_sys_iden.get_bounding_ellipsoids()
+    print((ellipsoid))
     # robot_q = np.loadtxt(path/"data"/"squat_robot_q.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_dq = np.loadtxt(path/"data"/"squat_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_ddq = np.loadtxt(path/"data"/"squat_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
