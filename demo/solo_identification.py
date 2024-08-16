@@ -86,10 +86,10 @@ def main():
     np.savetxt(path+"data/solo/"+"phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
-    # sys_idnt.compute_bounding_ellipsoids()
+    sys_idnt.compute_bounding_ellipsoids()
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
     
-    # -------- Using full force/torque sensing
+    # -------- Using full force/torque sensing -------- #
     Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
     Y = np.vstack(Y)
     Force = np.hstack(Force)
@@ -101,14 +101,14 @@ def main():
     phi_full_lmi = solver_full.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
     np.savetxt(path+"data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
     
-    # -------- Using Null space projection
-    Y_proj, Tau = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
-    B_v, B_c = get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt)
+    # -------- Using Null space projection -------- #
+    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
+    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt)
     Y_proj = np.vstack(Y_proj)
-    Tau = np.hstack(Tau)
-    B_v = np.vstack(B_v)
-    B_c = np.vstack(B_c)
-    solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
+    tau_proj = np.hstack(tau_proj)
+    B_v_proj = np.vstack(B_v_proj)
+    B_c_proj = np.vstack(B_c_proj)
+    solver_proj = Solver(Y_proj, tau_proj, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v_proj, B_c=B_c_proj)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')

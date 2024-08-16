@@ -33,3 +33,18 @@ robot:
       center: [0.0, -0.018, -0.08325]
     - semi_axes: [0.0135, 0.0135, 0.0955]     # HR_LOWER_LEG
       center: [0.0, -7.9e-03, -8.12e-02]
+
+  link_names:
+    - "base_link"
+    - "FL_SHOULDER"
+    - "FL_UPPER_LEG"
+    - "FL_LOWER_LEG"
+    - "FR_SHOULDER"
+    - "FR_UPPER_LEG"
+    - "FR_LOWER_LEG"
+    - "HL_SHOULDER"
+    - "HL_UPPER_LEG"
+    - "HL_LOWER_LEG"
+    - "HR_SHOULDER"
+    - "HR_UPPER_LEG"
+    - "HR_LOWER_LEG"
