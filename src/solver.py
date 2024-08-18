@@ -138,7 +138,7 @@ class Solver():
                 J_prior = self._construct_pseudo_inertia_matrix(phi_prior_idx)
                 U, Sigma, VT = np.linalg.svd(J_prior.value, full_matrices=True)
                 Sigma_inv = np.linalg.pinv(np.diag(Sigma))
-                # solve for : J_prior @ X = J
+                # Solve for : J_prior @ X = J
                 X = VT.T @ Sigma_inv @ U.T @ J.value
                 regularization_term += -cp.log_det(J) + cp.log(np.linalg.det(J_prior.value)) + cp.trace(X) - 4
         # Regularization based on Euclidean distance from phi_prior
