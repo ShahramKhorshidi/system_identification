@@ -328,9 +328,9 @@ class SystemIdentification(object):
             
             # Pseudo inertia matrix (4x4)
             J = np.zeros((4,4), dtype=np.float32)
-            J[:3, :3] = 0.5 * np.trace(I_bar) * np.eye(3) - I_bar
+            J[:3, :3] = (1/2) * np.trace(I_bar) * np.eye(3) - I_bar
             J[:3, 3] = h
-            J[3, :3] = h.T 
+            J[3, :3] = h.T
             J[3,3] = m
             
             # CoM constraint (4x4)
@@ -408,7 +408,7 @@ if __name__ == "__main__":
     robot_urdf = path/"files/solo_description"/"solo12.urdf"
     robot_config = path/"files/solo_description"/"solo12_config.yaml"
     robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
-    
+
     phi_prior = robot_sys_iden.get_phi_prior()
     print(phi_prior)
 
