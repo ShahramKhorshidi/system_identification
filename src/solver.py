@@ -41,11 +41,11 @@ class Solver():
     def _construct_pseudo_inertia_matrix(self, phi):
         # Retunrs the pseudo inertia matrix (J: 4x4)
         mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
-        trace = 0.5 * (I_xx + I_yy + I_zz)
+        trace = (1/2) * (I_xx + I_yy + I_zz)
         pseudo_inertia_matrix = cp.vstack([
-            cp.hstack([trace-I_xx, -I_xy     , -I_xz     ,  h_x]),
-            cp.hstack([-I_xy     , trace-I_yy, -I_yz     ,  h_y]),
-            cp.hstack([-I_xz     , -I_yz     , trace-I_zz,  h_z]),
+            cp.hstack([trace-I_xx, -I_xy     , -I_xz     , h_x ]),
+            cp.hstack([-I_xy     , trace-I_yy, -I_yz     , h_y ]),
+            cp.hstack([-I_xz     , -I_yz     , trace-I_zz, h_z ]),
             cp.hstack([h_x       , h_y       , h_z       , mass])
         ])
         return pseudo_inertia_matrix
@@ -95,34 +95,36 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="constant_pullback"):
+    def solve_fully_consistent(self, lambda_reg=1e-1, epsillon=1e-3, max_iter=20000, reg_type="entropic"):
         """
-        Solve constrained least squares problem as LMI. Ensuring physical Fully-consistency.
+        Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
         mass_sum = 0  # To accumulate the total mass
         regularization_term = 0
         self._constraints = []
         
-        for idx in range(0, self._nx, self._num_inertial_params):
-            # Extracting the inertial parameters (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
-            phi_idx = self._x[idx: idx+self._num_inertial_params]
-            phi_prior_idx = self._phi_prior[idx: idx+self._num_inertial_params]
-            ellipsoid_params = self._bounding_ellipsoids[idx // self._num_inertial_params]
+        # Iterating over the robot links
+        for idx in range(0, self._num_links):
+            # Extracting the inertial parameters of the link idx (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
+            j = idx * self._num_inertial_params
+            phi_idx = self._x[j: j+self._num_inertial_params]
+            phi_prior_idx = self._phi_prior[j: j+self._num_inertial_params]
+            ellipsoid_params_idx = self._bounding_ellipsoids[idx]
             
             # Mass
-            mass = phi_idx[0]
-            mass_sum += mass
+            mass_idx = phi_idx[0]
+            mass_sum += mass_idx
             
             # Add pseudo inertia matrix (J:4x4) constraint
             J = self._construct_pseudo_inertia_matrix(phi_idx)
             self._constraints.append(J >> cp.Constant(0)) # Positive definite constraint
             
             # Add the CoM constraint
-            com_constraint = self._construct_com_constraint_matrix(phi_idx, ellipsoid_params['semi_axes'], ellipsoid_params['center'])
+            com_constraint = self._construct_com_constraint_matrix(phi_idx, ellipsoid_params_idx['semi_axes'], ellipsoid_params_idx['center'])
             self._constraints.append(com_constraint >= cp.Constant(0))
             
             # Add the bounding ellipsoid constraint
-            Q_ellipsoid = self._construct_ellipsoid_matrix(ellipsoid_params['semi_axes'], ellipsoid_params['center'])
+            Q_ellipsoid = self._construct_ellipsoid_matrix(ellipsoid_params_idx['semi_axes'], ellipsoid_params_idx['center'])
             self._constraints.append(cp.trace(J @ Q_ellipsoid) >= cp.Constant(0))
             
             # Regularization terms
@@ -130,12 +132,15 @@ class Solver():
                 # Constant pullback approximation
                 M = self._pullback_metric(phi_prior_idx)
                 phi_diff_idx = phi_idx - phi_prior_idx
-                regularization_term += 0.5 * cp.quad_form(phi_diff_idx, M)
+                regularization_term += (1/2) * cp.quad_form(phi_diff_idx, M)
             elif reg_type=="entropic":
                 # Entropic (Bregman) divergence
-                trace_prior = 0.5 * (phi_prior_idx[4] + phi_prior_idx[7] + phi_prior_idx[9])
                 J_prior = self._construct_pseudo_inertia_matrix(phi_prior_idx)
-                regularization_term += -cp.log_det(J) + cp.log_det(J_prior) + cp.trace(J_prior @ J) - 4
+                U, Sigma, VT = np.linalg.svd(J_prior.value, full_matrices=True)
+                Sigma_inv = np.linalg.pinv(np.diag(Sigma))
+                # solve for : J_prior @ X = J
+                X = VT.T @ Sigma_inv @ U.T @ J.value
+                regularization_term += -cp.log_det(J) + cp.log(np.linalg.det(J_prior.value)) + cp.trace(X) - 4
         # Regularization based on Euclidean distance from phi_prior
         if reg_type=="euclidean":
             phi_diff_all = self._x - self._phi_prior
