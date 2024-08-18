@@ -14,10 +14,12 @@ def read_data(path, motion_name, filter_type):
     robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
     if filter_type=="butterworth":
         # Butterworth filter parameters
-        order = 10  # Filter order
-        cutoff_freq = 0.4  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        order = 5  # Filter order
+        cutoff_freq = 0.25  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
+        
         # Apply Butterworth filter to each data (row in the data array)
         robot_dq = signal.filtfilt(b, a, robot_dq, axis=1)
         robot_ddq = signal.filtfilt(b, a, robot_ddq, axis=1)
@@ -26,9 +28,10 @@ def read_data(path, motion_name, filter_type):
     elif filter_type=="savitzky":
         # Savitzky-Golay filter parameters
         window_length = 21  # window size (must be odd and greater than polyorder)
-        polyorder = 10      # order of the polynomial fit
+        polyorder = 5       # order of the polynomial fit
+        
         # Apply Savitzky-Golay filter
-        robot_dq = savgol_filter(robot_dq, window_length, polyorder)
+        # robot_dq = savgol_filter(robot_dq, window_length, polyorder)
         robot_ddq = savgol_filter(robot_ddq, window_length, polyorder)
         robot_tau = savgol_filter(robot_tau, window_length, polyorder)
         robot_ee_force = savgol_filter(robot_ee_force, window_length, polyorder)

@@ -317,10 +317,10 @@ def plot_eigval(I_bar, I, J, C, trace, title):
 if __name__ == "__main__":
     path = Path.cwd()
     
-    motion_name = "trot"
+    motion_name = "solo"
     q, dq, ddq, torque, force, cnt = read_data(path/"data"/"solo", motion_name, False)
     
-    identified_params = "noisy"
+    identified_params = "solo"
     phi_prior = np.loadtxt(path/"data"/"solo"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_full_llsq = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_full_lmi = np.loadtxt(path/"data"/"solo"/f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)

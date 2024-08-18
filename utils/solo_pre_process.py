@@ -5,9 +5,9 @@ import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
 
-def preprocess():
+def preprocessing():
     # Read the data.
-    path = "/home/khorshidi/git/system_identification/data/solo"
+    path = "/home/khorshidi/git/system_identification/data/solo/"
 
     robot_q = []
     robot_dq = []
@@ -40,17 +40,17 @@ def preprocess():
 
 def plot_data():
     path = Path.cwd()/"data/solo/"
-    robot_q = np.loadtxt(path/"noisy_robot_q.dat", delimiter='\t', dtype=np.float64)
-    robot_dq = np.loadtxt(path/"noisy_robot_dq.dat", delimiter='\t', dtype=np.float64)
-    robot_ddq = np.loadtxt(path/"noisy_robot_ddq.dat", delimiter='\t', dtype=np.float64)
-    robot_tau = np.loadtxt(path/"noisy_robot_tau.dat", delimiter='\t', dtype=np.float64)
-    robot_ee_force = np.loadtxt(path/"noisy_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
-    robot_contact = np.loadtxt(path/"noisy_robot_contact.dat", delimiter='\t', dtype=np.int8)
+    robot_q = np.loadtxt(path/"solo_robot_q.dat", delimiter='\t', dtype=np.float64)
+    robot_dq = np.loadtxt(path/"solo_robot_dq.dat", delimiter='\t', dtype=np.float64)
+    robot_ddq = np.loadtxt(path/"solo_robot_ddq.dat", delimiter='\t', dtype=np.float64)
+    robot_tau = np.loadtxt(path/"solo_robot_tau.dat", delimiter='\t', dtype=np.float64)
+    robot_ee_force = np.loadtxt(path/"solo_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
+    robot_contact = np.loadtxt(path/"solo_robot_contact.dat", delimiter='\t', dtype=np.int8)
 
-    orig_signal = robot_ddq
+    orig_signal = robot_dq
     # Butterworth filter parameters
-    order = 10  # Filter order
-    cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+    order = 5  # Filter order
+    cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
 
     # Design Butterworth filter
     b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
@@ -58,20 +58,19 @@ def plot_data():
     butter_signal = signal.filtfilt(b, a, orig_signal, axis=1)
 
     # Apply Savitzky-Golay filter
-    window_length = 21  # window size (must be odd and greater than polyorder)
-    polyorder = 10      # order of the polynomial fit
+    window_length = 35  # window size (must be odd and greater than polyorder)
+    polyorder = 5      # order of the polynomial fit
 
     savitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
 
     # Plot the data
-    fig, axs = plt.subplots(6, figsize=(10, 20))
+    fig, axs = plt.subplots(12, figsize=(10, 20))
 
-    for i in range(6):
+    for i in range(12):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original' )
-        axs[i].plot(butter_signal[j, :], label='Butter')
-        axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
-        axs[i].set_title(f'End Effector Force Dimension {i+1}')
+        # axs[i].plot(butter_signal[j, :], label='Butter')
+        # axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_xlabel('Sample')
         axs[i].set_ylabel('Force')
         axs[0].legend()
@@ -79,4 +78,5 @@ def plot_data():
     plt.show()
     
 if __name__ == "__main__":
+    # preprocessing()
     plot_data()
