@@ -23,7 +23,6 @@ class Solver():
             self.ndof = B_v.shape[1]
             self._b_v = cp.Variable(self.ndof) # Viscous friction coefficient (Nm / (rad/s))
             self._b_c = cp.Variable(self.ndof) # Coulomb friction coefficient (Nm)
-        print(self._B_v)
         self._objective = None
         self._constraints = []
         self._problem = None
