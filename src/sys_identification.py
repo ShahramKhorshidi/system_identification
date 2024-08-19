@@ -36,17 +36,6 @@ class SystemIdentification(object):
             self._base_dof = 0
             self.joints_dof = self.nv
             self._S = np.eye(self.joints_dof)
-                          
-        # Initialize the regressor matrix with proper dimension
-        # inertial parameters for each link, phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
-        self._num_inertial_params = 10
-        self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
-        self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
-        self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
-        
-        # Initialize the friction regressors
-        self.B_v = np.eye(self.joints_dof) # Viscous friction
-        self.B_c = np.eye(self.joints_dof) # Coulomb friction
         
         # Load robot configuration from YAML file
         with open(config_file, 'r') as file:
@@ -55,13 +44,11 @@ class SystemIdentification(object):
         self._robot_name = robot_config.get('name')
         self._robot_mass = robot_config.get('mass')
         
+        # List of link names
+        self._link_names = robot_config.get('link_names', [])
+        
         # List of bounding ellipsoids for all links
         self._bounding_ellipsoids = []
-        if robot_config.get('bounding_ellipsoids') is not None:
-            for ellipsoid in robot_config.get('bounding_ellipsoids'):
-                ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
-                ellipsoid['center'] = np.array(ellipsoid['center'])
-                self._bounding_ellipsoids.append(ellipsoid)
         
         # List of the end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
@@ -71,10 +58,19 @@ class SystemIdentification(object):
         ]
         self._nb_ee = len(self._end_eff_frame_names)
         
-        # List of link names
-        self._link_names = robot_config.get('link_names', [])
+        # Initialize the regressor matrix with proper dimension
+        # inertial parameters for each link, phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
+        self._num_inertial_params = 10
+        self._num_links = len(self._link_names)
+        self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
+        self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
+        
+        # Initialize the friction regressors
+        self.B_v = np.eye(self.joints_dof) # Viscous friction
+        self.B_c = np.eye(self.joints_dof) # Coulomb friction
         
         self._init_motion_subspace_dict()
+        self._compute_bounding_ellipsoids()
         # self._show_kinematic_tree()
     
     def _show_kinematic_tree(self):
@@ -237,9 +233,8 @@ class SystemIdentification(object):
                 Y_i = jXi.action @ ind_regressors[joint_id]
         return self._Y
 
-    def compute_bounding_ellipsoids(self):
+    def _compute_bounding_ellipsoids(self):
         robot = URDF.from_xml_file(self._urdf_path)
-        self._bounding_ellipsoids = []
         for link in robot.links:
             if link.name in self._link_names:
                 for visual in link.visuals:
@@ -295,14 +290,12 @@ class SystemIdentification(object):
         eigval_com =[]
         trace_JQ = []
         
-        if len(self._bounding_ellipsoids)==0:
-            self.compute_bounding_ellipsoids()
-        
-        for j in range(0, phi.size, self._num_inertial_params):
+        for idx in range(0, self._num_links):
+            j = idx * self._num_inertial_params
             # Extracting the inertial parameters
             m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi[j: j+self._num_inertial_params]
             h = np.array([h_x, h_y, h_z])
-            ellipsoid_params = self._bounding_ellipsoids[j // self._num_inertial_params]
+            ellipsoid_params = self._bounding_ellipsoids[idx]
             semi_axes = ellipsoid_params['semi_axes']
             center = ellipsoid_params['center']
             
@@ -318,6 +311,13 @@ class SystemIdentification(object):
             I[3:, 0:3] = pin.skew(h).T
             I[3:, 3:] = m * np.eye(3)
             
+            # Pseudo inertia matrix (4x4)
+            J = np.zeros((4,4), dtype=np.float32)
+            J[:3, :3] = (1/2) * np.trace(I_bar) * np.eye(3) - I_bar
+            J[:3, 3] = h
+            J[3, :3] = h.T
+            J[3,3] = m            
+            
             # Bounding ellipsoid: Q matrix (4x4)
             Q_full = np.zeros((4,4), dtype=np.float32)
             Q = np.linalg.inv(np.diag(semi_axes)**2)
@@ -325,13 +325,6 @@ class SystemIdentification(object):
             Q_full[:3, 3] = Q @ center
             Q_full[3, :3] = (Q @ center).T
             Q_full[3, 3] = 1 - (center.T @ Q @ center)
-            
-            # Pseudo inertia matrix (4x4)
-            J = np.zeros((4,4), dtype=np.float32)
-            J[:3, :3] = (1/2) * np.trace(I_bar) * np.eye(3) - I_bar
-            J[:3, 3] = h
-            J[3, :3] = h.T
-            J[3,3] = m
             
             # CoM constraint (4x4)
             C = np.zeros((4,4), dtype=np.float32)
@@ -405,16 +398,16 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     path = Path.cwd()
-    robot_urdf = path/"files/solo_description"/"solo12.urdf"
-    robot_config = path/"files/solo_description"/"solo12_config.yaml"
+    robot_urdf = path/"files/spot_description"/"spot.urdf"
+    robot_config = path/"files/spot_description"/"spot_config.yaml"
     robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
 
     phi_prior = robot_sys_iden.get_phi_prior()
     print(phi_prior)
 
-    robot_sys_iden.compute_bounding_ellipsoids()
     ellipsoid = robot_sys_iden.get_bounding_ellipsoids()
     print((ellipsoid))
+    # robot_sys_iden.get_physical_consistency(phi_prior)
     # robot_q = np.loadtxt(path/"data"/"squat_robot_q.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_dq = np.loadtxt(path/"data"/"squat_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_ddq = np.loadtxt(path/"data"/"squat_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, 3500]

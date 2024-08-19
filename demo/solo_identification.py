@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
-from src.solver import Solver
+from src.new_solver import Solver
 from src.sys_identification import SystemIdentification
 
 
@@ -72,8 +72,8 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 
 def main():
     path = "/home/khorshidi/git/system_identification/"
-    motion_name = "noisy"
-    filter_type = "butterworth" # "savitzky" "butterworth"
+    motion_name = "solo"
+    filter_type = "none" # "savitzky" "butterworth"
     q, dq, ddq, torque, force, cnt = read_data(path+"data/solo/", motion_name, filter_type)
     robot_urdf = path+"files/solo_description/"+"solo12.urdf"
     robot_config = path+"files/solo_description/"+"solo12_config.yaml"
@@ -89,7 +89,6 @@ def main():
     np.savetxt(path+"data/solo/"+"phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
-    sys_idnt.compute_bounding_ellipsoids()
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
     
     # -------- Using full force/torque sensing -------- #

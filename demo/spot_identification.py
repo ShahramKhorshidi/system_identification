@@ -74,7 +74,6 @@ def main():
     np.savetxt(path+"data/spot/"+"phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
-    sys_idnt.compute_bounding_ellipsoids()
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
     
     # -------- Using Null space projection -------- #
@@ -84,15 +83,15 @@ def main():
     Tau = np.hstack(Tau)
     B_v = np.vstack(B_v)
     B_c = np.vstack(B_c)
-    solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids) #, B_v=B_v, B_c=B_c)
+    solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
+    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
     np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     
-    # print("b_v:\n", b_v)
-    # print("b_c:\n", b_c)
+    print("b_v:\n", b_v)
+    print("b_c:\n", b_c)
 if __name__ == "__main__":
     main()
