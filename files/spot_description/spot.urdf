@@ -18,6 +18,12 @@
     </collision>
   </link>
   <link name="base_link">
+    <visual>
+      <origin rpy="0 0 0" xyz="0 0 0"/>
+      <geometry>
+        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/body.obj"/>
+      </geometry>
+    </visual>
     <inertial>
       <origin rpy="0.0 0.0 0.0" xyz="0.006394396536052227 -9.812158532440662e-05 0.0009113792330026627"/>
       <mass value="32.86"/>
