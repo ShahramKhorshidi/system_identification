@@ -38,16 +38,16 @@ def preprocessing():
     np.savetxt(path+"solo_robot_ee_force.dat", force, delimiter='\t')
     np.savetxt(path+"solo_robot_contact.dat", contact, delimiter='\t')
 
-def plot_data():
+def plot_data(motion_name):
     path = Path.cwd()/"data/solo/"
-    robot_q = np.loadtxt(path/"solo_robot_q.dat", delimiter='\t', dtype=np.float64)
-    robot_dq = np.loadtxt(path/"solo_robot_dq.dat", delimiter='\t', dtype=np.float64)
-    robot_ddq = np.loadtxt(path/"solo_robot_ddq.dat", delimiter='\t', dtype=np.float64)
-    robot_tau = np.loadtxt(path/"solo_robot_tau.dat", delimiter='\t', dtype=np.float64)
-    robot_ee_force = np.loadtxt(path/"solo_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
-    robot_contact = np.loadtxt(path/"solo_robot_contact.dat", delimiter='\t', dtype=np.int8)
+    robot_q = np.loadtxt(path/f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float64)
+    robot_dq = np.loadtxt(path/f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float64)
+    robot_ddq = np.loadtxt(path/f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float64)
+    robot_tau = np.loadtxt(path/f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float64)
+    robot_ee_force = np.loadtxt(path/f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
+    robot_contact = np.loadtxt(path/f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
 
-    orig_signal = robot_dq
+    orig_signal = robot_tau
     # Butterworth filter parameters
     order = 5  # Filter order
     cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
@@ -69,7 +69,7 @@ def plot_data():
     for i in range(12):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original' )
-        # axs[i].plot(butter_signal[j, :], label='Butter')
+        axs[i].plot(butter_signal[j, :], label='Butter')
         # axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_xlabel('Sample')
         axs[i].set_ylabel('Force')
@@ -79,4 +79,4 @@ def plot_data():
     
 if __name__ == "__main__":
     # preprocessing()
-    plot_data()
+    plot_data("noisy")

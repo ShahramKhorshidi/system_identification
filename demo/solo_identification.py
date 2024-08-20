@@ -1,7 +1,7 @@
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
-from src.new_solver import Solver
+from src.solver import Solver
 from src.sys_identification import SystemIdentification
 
 
@@ -73,7 +73,7 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 def main():
     path = "/home/khorshidi/git/system_identification/"
     motion_name = "solo"
-    filter_type = "none" # "savitzky" "butterworth"
+    filter_type = "butterworth" # "savitzky" "butterworth"
     q, dq, ddq, torque, force, cnt = read_data(path+"data/solo/", motion_name, filter_type)
     robot_urdf = path+"files/solo_description/"+"solo12.urdf"
     robot_config = path+"files/solo_description/"+"solo12_config.yaml"
@@ -100,7 +100,7 @@ def main():
     phi_full_llsq = solver_full.solve_llsq_svd()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
     
-    phi_full_lmi = solver_full.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
+    phi_full_lmi = solver_full.solve_fully_consistent()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
     
     # -------- Using Null space projection -------- #
@@ -115,7 +115,7 @@ def main():
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
+    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     
     print("b_v:\n", b_v)
