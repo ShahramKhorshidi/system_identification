@@ -10,7 +10,6 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 class SystemIdentification(object):
     def __init__(self, urdf_file, config_file, floating_base):
         self._urdf_path = urdf_file
-        
         # Create robot model and data
         self._floating_base = floating_base
         if self._floating_base:
@@ -47,10 +46,7 @@ class SystemIdentification(object):
         # List of link names
         self._link_names = robot_config.get('link_names', [])
         
-        # List of bounding ellipsoids for all links
-        self._bounding_ellipsoids = []
-        
-        # List of the end_effector names
+        # List of end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
         self._endeff_ids = [
             self._rmodel.getFrameId(name)
@@ -69,8 +65,11 @@ class SystemIdentification(object):
         self.B_v = np.eye(self.joints_dof) # Viscous friction
         self.B_c = np.eye(self.joints_dof) # Coulomb friction
         
-        self._init_motion_subspace_dict()
+        # List of bounding ellipsoids for all links
+        self._bounding_ellipsoids = []
         self._compute_bounding_ellipsoids()
+        
+        self._init_motion_subspace_dict()
         # self._show_kinematic_tree()
     
     def _show_kinematic_tree(self):
@@ -282,7 +281,7 @@ class SystemIdentification(object):
         return self._phi_prior
     
     def get_physical_consistency(self, phi):
-        # Returns the minimum eigenvalue of matrices in LMI constraints
+        # Returns the minimum eigenvalue of matrices in LMI constraints and trace(J@Q)
         # For phiysical consistency all values should be non-negative
         eigval_I_bar = []
         eigval_I = [] # Spatial body inertia
@@ -290,9 +289,9 @@ class SystemIdentification(object):
         eigval_com =[]
         trace_JQ = []
         
-        for idx in range(0, self._num_links):
-            j = idx * self._num_inertial_params
+        for idx in range(self._num_links):
             # Extracting the inertial parameters
+            j = idx * self._num_inertial_params
             m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi[j: j+self._num_inertial_params]
             h = np.array([h_x, h_y, h_z])
             ellipsoid_params = self._bounding_ellipsoids[idx]
@@ -398,15 +397,15 @@ class SystemIdentification(object):
 
 if __name__ == "__main__":
     path = Path.cwd()
-    robot_urdf = path/"files/spot_description"/"spot.urdf"
-    robot_config = path/"files/spot_description"/"spot_config.yaml"
+    robot_urdf = path/"files/go1_description"/"go1.urdf"
+    robot_config = path/"files/go1_description"/"go1_config.yaml"
     robot_sys_iden = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
 
     phi_prior = robot_sys_iden.get_phi_prior()
     print(phi_prior)
 
-    ellipsoid = robot_sys_iden.get_bounding_ellipsoids()
-    print((ellipsoid))
+    # ellipsoid = robot_sys_iden.get_bounding_ellipsoids()
+    # print((ellipsoid))
     # robot_sys_iden.get_physical_consistency(phi_prior)
     # robot_q = np.loadtxt(path/"data"/"squat_robot_q.dat", delimiter='\t', dtype=np.float32)[:, 3500]
     # robot_dq = np.loadtxt(path/"data"/"squat_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, 3500]
