@@ -383,8 +383,8 @@ class SystemIdentification(object):
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
             y, tau = self.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-            tau_pred.append(y@phi)
-            tau_meas.append(tau)
+            tau_pred.append((y@phi)[6:])
+            tau_meas.append(tau[6:])
         tau_pred = np.vstack(tau_pred)
         tau_meas = np.vstack(tau_meas)
         
