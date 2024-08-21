@@ -283,7 +283,7 @@ def plot_proj_torques(q, dq, ddq, torque, cnt, phi, sys_idnt, title):
     
     # Calculate RMSE for each joint
     rmse_per_joint = np.sqrt(mse_per_joint)
-    print("\n", title, "--RMSE per joint:", rmse_per_joint)
+    print("\n", title, "-- RMSE per joint:", rmse_per_joint)
     
 def plot_eigval(I_bar, I, J, C, trace, title):
     num_links = 13
@@ -308,9 +308,8 @@ def plot_eigval(I_bar, I, J, C, trace, title):
     ax.set_xticks(index + bar_width / 2)
     ax.set_xticklabels(index)
     ax.legend()
-
     plt.tight_layout()
-        
+
 
 if __name__ == "__main__":
     path = Path.cwd()
@@ -318,7 +317,7 @@ if __name__ == "__main__":
     motion_name = "spot"
     q, dq, ddq, torque, cnt = read_data(path/"data"/"spot", motion_name, False)
     
-    phi_prior = np.loadtxt(path/"data"/"spot"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = np.loadtxt(path/"data"/"spot"/"spot_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_proj_llsq = np.loadtxt(path/"data"/"spot"/"spot_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_proj_lmi = np.loadtxt(path/"data"/"spot"/"spot_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
     
@@ -328,11 +327,13 @@ if __name__ == "__main__":
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # RMSE Results
+    rmse_phi_prior = overall_rmse(q, dq, ddq, torque, cnt, phi_prior, sys_idnt)
     rmse_proj_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt)
     rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
     
-    print("\n------ Projected ------")
-    print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
+    print("\n------ RMSE Vlaues ------")
+    print("RMSE Prior: ", rmse_phi_prior, "\nRMSE llsq: ", rmse_proj_llsq, "\nRMSE LMI: ", rmse_proj_lmi)
+    print("-------------------------")
     
     # Plot physical consistency
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)

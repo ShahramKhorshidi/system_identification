@@ -5,36 +5,35 @@ import scipy.signal as signal
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
-def preprocessing(path, motion_name):    
+def preprocessing(n, path, motion_name):    
     # Read the CSV file into numpy arrays
     df = pd.read_csv(path+motion_name)
-    T = df.shape[0]
     
-    t_s = df.iloc[:, 0].to_numpy()
-    t_ns = df.iloc[:, 1].to_numpy()
+    t_s = df.iloc[:n, 0].to_numpy()
+    t_ns = df.iloc[:n, 1].to_numpy()
     
-    q_base_odom = df.iloc[:, 2:9].to_numpy()
-    q_base_vision = df.iloc[:, 21:28].to_numpy()
-    q_joints = df.iloc[:, 9:21].to_numpy()
+    q_base_odom = df.iloc[:n, 2:9].to_numpy()
+    q_base_vision = df.iloc[:n, 21:28].to_numpy()
+    q_joints = df.iloc[:n, 9:21].to_numpy()
     
-    dq_base_odom = df.iloc[:, 40:46].to_numpy()
-    dq_base_vision = df.iloc[:, 58:64].to_numpy()
-    dq_joints = df.iloc[:, 46:58].to_numpy()
+    dq_base_odom = df.iloc[:n, 40:46].to_numpy()
+    dq_base_vision = df.iloc[:n, 58:64].to_numpy()
+    dq_joints = df.iloc[:n, 46:58].to_numpy()
     
-    ddq_base_odom = df.iloc[:, 76:82].to_numpy()
-    ddq_base_vision = df.iloc[:, 94:100].to_numpy()
-    ddq_joints = df.iloc[:, 82:94].to_numpy()
+    ddq_base_odom = df.iloc[:n, 76:82].to_numpy()
+    ddq_base_vision = df.iloc[:n, 94:100].to_numpy()
+    ddq_joints = df.iloc[:n, 82:94].to_numpy()
     
-    cnt = df.iloc[:, 124:128].to_numpy()
-    tau = df.iloc[:, 112:124].to_numpy().T
+    cnt = df.iloc[:n, 124:128].to_numpy()
+    tau = df.iloc[:n, 112:124].to_numpy().T
     
-    time = np.zeros((T), dtype=np.float32)
-    q = np.zeros((19, T), dtype=np.float32)
-    dq = np.zeros((18, T), dtype=np.float32)
-    ddq = np.zeros((18, T), dtype=np.float32)
-    contact = np.zeros((4, T), dtype=np.float32)
+    time = np.zeros((n), dtype=np.float32)
+    q = np.zeros((19, n), dtype=np.float32)
+    dq = np.zeros((18, n), dtype=np.float32)
+    ddq = np.zeros((18, n), dtype=np.float32)
+    contact = np.zeros((4, n), dtype=np.float32)
     
-    for i in range(T):
+    for i in range(n):
         time[i] = t_s[i] - t_s[0] + t_ns[i] *1e-9
         
         # Robot configuration
@@ -85,12 +84,12 @@ def plot(data):
     savitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
 
     # Plot the data
-    fig, axs = plt.subplots(6, figsize=(10, 20))
+    fig, axs = plt.subplots(7, figsize=(10, 20))
 
-    for i in range(6):
+    for i in range(7):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original')
-        # axs[i].plot(butter_signal[j, :], label='Butter')
+        axs[i].plot(butter_signal[j, :], label='Butter')
         # axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_xlabel('Sample')
         axs[0].legend()
@@ -100,9 +99,9 @@ def plot(data):
 
 def plot_2(data1, data2):
     # Plot two data arrays of the same dimension (Used for comparison of q_odom and q_vision)
-    fig, axs = plt.subplots(7, figsize=(10, 20))
+    fig, axs = plt.subplots(6, figsize=(10, 20))
 
-    for i in range(7):
+    for i in range(6):
         j = i
         axs[i].plot(data1[j, :],label='Odom')
         axs[i].plot(data2[j, :], label='Vision')
@@ -114,23 +113,27 @@ def plot_2(data1, data2):
     
     
 if __name__ == "__main__":
+    # Read the dats of different trajecories, "squat", "pose", "walk" and "crawl"
     path = "/home/khorshidi/git/system_identification/data/spot/"
+    num_samples = 3000 # Number of samples for each trajectory
+    time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files/spot_squat.csv")
+    time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files/spot_pose.csv")
+    time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files/spot_walk_speed_slow_height_high_turn_around.csv")
+    time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files/spot_crawl_speed_slow_height_high_moved_both.csv")
+
+    # Concatenate date of all the trajectories into one array
+    q = np.hstack((q_0, q_1, q_2, q_3))
+    dq = np.hstack((dq_0, dq_1, dq_2, dq_3))
+    ddq = np.hstack((ddq_0, ddq_1, ddq_2, ddq_3))
+    tau = np.hstack((tau_0, tau_1, tau_2, tau_3))
+    cnt = np.hstack((cnt_0, cnt_1, cnt_2, cnt_3))
     
-    time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/spot_squat.csv")
-    time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/spot_pose.csv")
-    time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/spot_walk_speed_slow_height_high_turn_around.csv")
-    
-    # q = np.hstack((q_0, q_1, q_2))
-    # dq = np.hstack((dq_0, dq_1, dq_2))
-    # ddq = np.hstack((ddq_0, ddq_1, ddq_2))
-    # tau = np.hstack((tau_0, tau_1, tau_2))
-    # cnt = np.hstack((cnt_0, cnt_1, cnt_2))
-    
-    # np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
-    # np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
-    # np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
-    # np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
-    # np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
+    # Save the combined trajectories into "spot" file
+    np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
+    np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
+    np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
+    np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
+    np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
     
     # ddq_diff = finite_diff(time, dq)
-    plot(ddq_0)
+    plot(ddq)

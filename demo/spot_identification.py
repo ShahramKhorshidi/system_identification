@@ -6,12 +6,11 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, filter_type):
-    i = 2000
-    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, :i]
-    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, :i]
+    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)
+    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)
+    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)
+    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
     
     if filter_type=="butterworth":
         # Butterworth filter parameters
@@ -56,9 +55,10 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
     return B_v, B_c
 
 def main():
+    # Read the data
     path = "/home/khorshidi/git/system_identification/"
     motion_name = "spot"
-    filter_type = "butterworth" # "savitzky" "butterworth"
+    filter_type = "butterworth" # savitzky or butterworth
     q, dq, ddq, torque, cnt = read_data(path+"data/spot/", motion_name, filter_type)
     robot_urdf = path+"files/spot_description/"+"spot.urdf"
     robot_config = path+"files/spot_description/"+"spot_config.yaml"
@@ -71,7 +71,7 @@ def main():
     
     # Prior values for the inertial parameters
     phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"data/spot/"+"phi_prior.dat", phi_prior, delimiter='\t')
+    np.savetxt(path+"data/spot/"+"spot_phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
@@ -88,10 +88,8 @@ def main():
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent(lambda_reg=1e-2, epsillon=1e-4, max_iter=20000)
+    phi_proj_lmi = solver_proj.solve_fully_consistent()
     np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
-    
-    print("b_v:\n", b_v)
-    print("b_c:\n", b_c)
+
 if __name__ == "__main__":
     main()
