@@ -10,29 +10,36 @@ def preprocessing(path, motion_name):
     df = pd.read_csv(path+motion_name)
     T = df.shape[0]
     
+    # Base position and orientation
     q_base = df.iloc[:, 37:40].to_numpy()
     quat_x = df.iloc[:, 44].to_numpy()
     quat_y = df.iloc[:, 45].to_numpy()
     quat_z = df.iloc[:, 46].to_numpy()
     quat_w = df.iloc[:, 43].to_numpy()
     
+    # Joint encoders
     q_joints = df.iloc[:, 1:13].to_numpy()
     
+    # joint velocities
     dq_base_lin = df.iloc[:, 40:43].to_numpy()
     dq_base_ang = df.iloc[:, 53:56].to_numpy()
     dq_joints = df.iloc[:, 13:25].to_numpy()
     
+    # IMU lin acceleration
     ddq_base_lin = df.iloc[:, 50:53].to_numpy()
     
     # Finite differencing
     dq_base_dif = finite_diff(q_base[:, :].T)
     
-    # cnt = df.iloc[:, 124:128].to_numpy()
+    # End-effector force
+    ee_force = df.iloc[:, 56:60].to_numpy()
+    
+    # Joint torques
     tau = df.iloc[:, 25:37].to_numpy().T
     
     q = np.zeros((19, T), dtype=np.float32)
     dq = np.zeros((18, T), dtype=np.float32)
-    contact = np.ones((4, T), dtype=np.float32)
+    cnt = np.zeros((4, T), dtype=np.float32)
     
     for i in range(T):
         # Robot configuration
@@ -52,21 +59,31 @@ def preprocessing(path, motion_name):
         R = quat.toRotationMatrix()
 
         # Robot velocity
-        dq[0:3, i] = dq_base_lin[i, :] #R.T @ dq_base_dif[:, i] #dq_base_lin[i, :]
+        dq[0:3, i] = dq_base_lin[i, :] #R.T @ dq_base_dif[:3, i] #dq_base_lin[i, :]
         dq[3:6, i] = dq_base_ang[i, :]
         dq[6:, i] = dq_joints[i, :]
 
+        # Remove gravity offset from IMU
+        ddq_base_lin[i, :] += np.array([0, 0, -9.81]) 
+    
+    # Robot acceleration
     ddq = finite_diff(dq)
     for i in range(T):
         ddq[:3, i] = ddq_base_lin[i, :]
+        
+        # Robot contact
+        for j in range(4):
+            if ee_force[i, j] > 150:
+                cnt[j, i] = 1
     
-    # Robot acceleration
-    q = q[:, ::5]
-    dq = dq[:, ::5]
-    ddq = ddq[:, ::5]
-    tau = tau[:, ::5]
-    contact = contact[:, ::5]    
-    return q, dq, ddq, tau, contact
+    # Downsampling
+    q = q[:, ::3]
+    dq = dq[:, ::3]
+    ddq = ddq[:, ::3]
+    tau = tau[:, ::3]
+    cnt = cnt[:, ::3] 
+    
+    return q, dq, ddq, tau, cnt
 
 def finite_diff(dq):
     T = dq.shape[1]
@@ -74,7 +91,7 @@ def finite_diff(dq):
     
     # Butterworth filter parameters
     order = 5  # Filter order
-    cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+    cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
 
     # Design Butterworth filter
     b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
@@ -113,7 +130,7 @@ def plot(data):
     for i in range(6):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original')
-        # axs[i].plot(butter_signal[j, :], label='Butter')
+        axs[i].plot(butter_signal[j, :], label='Butter')
         # axs[i].plot(savitzky_signal[j, :], label='Savitzky-Golay')
         axs[i].set_xlabel('Sample')
         axs[0].legend()
@@ -127,7 +144,7 @@ def plot_2(data1, data2):
     for i in range(3):
         j = i
         axs[i].plot(data1[j, :],label='Fin_diff')
-        axs[i].plot(data2[j, :], label='IMU')
+        axs[i].plot(data2[j, :], label='Sensor')
         axs[i].set_xlabel('Sample')
         axs[i].set_ylabel('')
         axs[0].legend()
@@ -139,19 +156,20 @@ if __name__ == "__main__":
     path = "/home/khorshidi/git/system_identification/data/go1/"
     
     q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/wobbling_base.csv")
-    # time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/go1_pose.csv")
-    # time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/go1_walk_speed_slow_height_high_turn_around.csv")
+    q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/walking.csv")
+    q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/running.csv")
     
-    # q = np.hstack((q_0, q_1, q_2))
-    # dq = np.hstack((dq_0, dq_1, dq_2))
-    # ddq = np.hstack((ddq_0, ddq_1, ddq_2))
-    # tau = np.hstack((tau_0, tau_1, tau_2))
-    # cnt = np.hstack((cnt_0, cnt_1, cnt_2))
+    q = np.hstack((q_0, q_1, q_2))
+    dq = np.hstack((dq_0, dq_1, dq_2))
+    ddq = np.hstack((ddq_0, ddq_1, ddq_2))
+    tau = np.hstack((tau_0, tau_1, tau_2))
+    cnt = np.hstack((cnt_0, cnt_1, cnt_2))
     
-    np.savetxt(path+"go1_robot_q.dat", q_0, delimiter='\t')
-    np.savetxt(path+"go1_robot_dq.dat", dq_0, delimiter='\t')
-    np.savetxt(path+"go1_robot_ddq.dat", ddq_0, delimiter='\t')
-    np.savetxt(path+"go1_robot_tau.dat", tau_0, delimiter='\t')
-    np.savetxt(path+"go1_robot_contact.dat", cnt_0, delimiter='\t')
+    np.savetxt(path+"go1_robot_q.dat", q, delimiter='\t')
+    np.savetxt(path+"go1_robot_dq.dat", dq, delimiter='\t')
+    np.savetxt(path+"go1_robot_ddq.dat", ddq, delimiter='\t')
+    np.savetxt(path+"go1_robot_tau.dat", tau, delimiter='\t')
+    np.savetxt(path+"go1_robot_contact.dat", cnt, delimiter='\t')
     
-    plot(ddq_0)
+    plot(q)
+    # plot_2(dq_0[:3,:], vel_lin)

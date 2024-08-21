@@ -13,8 +13,8 @@ def read_data(path, motion_name, data_noisy):
     robot_contact = np.loadtxt(path/f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
     if data_noisy:
         # Butterworth filter parameters
-        order = 10  # Filter order
-        cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        order = 5  # Filter order
+        cutoff_freq = 0.1  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
         # Apply Butterworth filter to each data (row in the data array)
@@ -283,7 +283,7 @@ def plot_proj_torques(q, dq, ddq, torque, cnt, phi, sys_idnt, title):
     
     # Calculate RMSE for each joint
     rmse_per_joint = np.sqrt(mse_per_joint)
-    print("\n", title, "--RMSE per joint:", rmse_per_joint)
+    print("\n", title, "-- RMSE per joint:", rmse_per_joint)
     
 def plot_eigval(I_bar, I, J, C, trace, title):
     num_links = 13
@@ -308,9 +308,8 @@ def plot_eigval(I_bar, I, J, C, trace, title):
     ax.set_xticks(index + bar_width / 2)
     ax.set_xticklabels(index)
     ax.legend()
-
     plt.tight_layout()
-        
+
 
 if __name__ == "__main__":
     path = Path.cwd()
@@ -318,9 +317,9 @@ if __name__ == "__main__":
     motion_name = "go1"
     q, dq, ddq, torque, cnt = read_data(path/"data"/"go1", motion_name, False)
     
-    phi_prior = np.loadtxt(path/"data"/"go1"/"phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = np.loadtxt(path/"data"/"go1"/"go1_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_proj_llsq = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
-    # phi_proj_lmi = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_lmi = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
     
     # Instantiate the identification problem
     robot_urdf = path/"files"/"go1_description"/"go1.urdf"
@@ -328,11 +327,13 @@ if __name__ == "__main__":
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # RMSE Results
+    rmse_phi_prior = overall_rmse(q, dq, ddq, torque, cnt, phi_prior, sys_idnt)
     rmse_proj_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt)
-    # rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
+    rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
     
-    print("\n------ Projected ------")
-    # print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
+    print("\n------ RMSE Vlaues ------")
+    print("RMSE Prior: ", rmse_phi_prior, "\nRMSE llsq: ", rmse_proj_llsq, "\nRMSE LMI: ", rmse_proj_lmi)
+    print("\n-------------------------")
     
     # Plot physical consistency
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
@@ -341,20 +342,20 @@ if __name__ == "__main__":
     I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
     plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
 
-    # I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
-    # plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Constrained LMI")
+    I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
+    plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Constrained LMI")
     
-    # # # Plots
+    # Plots
     plot_mass(phi_prior, phi_proj_llsq, "Projected llsq_Mass")
-    # plot_mass(phi_prior, phi_proj_lmi, "Projected LMI_Mass")
+    plot_mass(phi_prior, phi_proj_lmi, "Projected LMI_Mass")
     
     plot_h(phi_prior, phi_proj_llsq, "Projected llsq_First Moment")
-    # plot_h(phi_prior, phi_proj_lmi, "Projected LMI_First moment")
+    plot_h(phi_prior, phi_proj_lmi, "Projected LMI_First moment")
     
     plot_inertia(phi_prior, phi_proj_llsq, "Projected llsq_Second Moment")
-    # plot_inertia(phi_prior, phi_proj_lmi, "Projected LMI_Second Moment")
+    plot_inertia(phi_prior, phi_proj_lmi, "Projected LMI_Second Moment")
 
     plot_proj_torques(q, dq, ddq, torque, cnt, phi_prior, sys_idnt, "Phi prior")
-    # plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
+    plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
     
     plt.show()
