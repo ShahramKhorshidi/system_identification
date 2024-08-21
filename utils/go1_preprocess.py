@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
 
-def preprocessing(path, motion_name):    
+def preprocessing(path, motion_name, k=5):    
     # Read the CSV file into numpy arrays
     df = pd.read_csv(path+motion_name)
     T = df.shape[0]
@@ -69,20 +69,21 @@ def preprocessing(path, motion_name):
     
     # Robot acceleration
     ddq = finite_diff(dq)
+    force_thres = 160
     for i in range(T):
         ddq[:3, i] = ddq_base_lin[i, :]
         
         # Robot contact
         for j in range(4):
-            if ee_force[i, j] > 150:
+            if ee_force[i, j] > force_thres:
                 cnt[j, i] = 1
     
     # Downsampling
-    q = q[:, ::3]
-    dq = dq[:, ::3]
-    ddq = ddq[:, ::3]
-    tau = tau[:, ::3]
-    cnt = cnt[:, ::3] 
+    q = q[:, ::k]
+    dq = dq[:, ::k]
+    ddq = ddq[:, ::k]
+    tau = tau[:, ::k]
+    cnt = cnt[:, ::k] 
     return q, dq, ddq, tau, cnt
 
 def finite_diff(dq):
@@ -153,10 +154,10 @@ def plot_2(data1, data2):
     
 if __name__ == "__main__":
     path = "/home/khorshidi/git/system_identification/data/go1/"
-    
-    q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/wobbling_base.csv")
-    q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/walking.csv")
-    q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/running.csv")
+    downsampling = 3
+    q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/wobbling_base.csv", k=downsampling)
+    q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/walking.csv", k=downsampling)
+    q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/running.csv", k=downsampling)
     
     q = np.hstack((q_0, q_1, q_2))
     dq = np.hstack((dq_0, dq_1, dq_2))
