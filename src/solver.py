@@ -39,7 +39,7 @@ class Solver():
         return A_psudo@self._tau
 
     # ------------ Constrained Solver (LMI) ------------ #
-    def _construct_spatial_body_inertia(self, phi):
+    def _construct_spatial_body_inertia_matrix(self, phi):
         # Retunrs the spatial body inertia matrix (S:6x6) as a cvxpy expression
         m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
         S = cp.vstack([
@@ -85,7 +85,7 @@ class Solver():
         top_right = cp.reshape(h - mass * center, (1, 3))  # (3,) array reshaped to (1,3)
         bottom_left = top_right.T  # Transpose to get (3,1)
         bottom_right = mass * Qs  # Already (3,3)
-   
+        
         com_constraint = cp.bmat([
             [top_left   , top_right   ],
             [bottom_left, bottom_right]
@@ -93,6 +93,7 @@ class Solver():
         return com_constraint
     
     def _pullback_metric(self, phi):
+        # Returns the approximation of Riemannian distance metric (M:10x10) as a numpy array
         M = np.zeros((self._num_inertial_params, self._num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
         P_inv = np.linalg.inv(P)
@@ -119,7 +120,7 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-2, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
+    def solve_fully_consistent(self, lambda_reg=1e-1, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
@@ -141,7 +142,7 @@ class Solver():
             
             # Compute pseudo inertia matrix (J:4x4) and add the constraint
             J = self._construct_pseudo_inertia_matrix(phi_idx)
-            epsilon = 1e-5
+            epsilon = 1e-6
             J_reg = J + epsilon * cp.Constant(np.eye(J.shape[0])) # Regularize to ensure J is strictly positive definite
             self._constraints.append(J_reg >> 0)
             
@@ -212,12 +213,8 @@ class Solver():
             print("Setup time (seconds):", solver_info.setup_time)
             print("Number of iterations:", solver_info.num_iters)
             print("########################################")
-            
-            if self._identify_fric:
-                # Return the value of the decision variables
-                return self._phi.value, self._b_v.value, self._b_c.value
-            else:
-                return self._phi.value
+            # Return the value of the decision variables
+            return self._phi.value
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")
