@@ -2,6 +2,7 @@ import yaml
 import trimesh
 import numpy as np
 import pinocchio as pin
+from pathlib import Path
 from numpy.linalg import pinv
 from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
@@ -9,7 +10,6 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 class SystemIdentification(object):
     def __init__(self, urdf_file, config_file, floating_base):
         self._urdf_path = urdf_file
-        
         # Create robot model and data
         self._floating_base = floating_base
         if self._floating_base:
@@ -27,17 +27,14 @@ class SystemIdentification(object):
         
         # Selection matrix
         if floating_base:
-            self._S = np.zeros((self.nv-6, self.nv))
-            self._S[:, 6:] = np.eye(self.nv-6)
+            self._base_dof = 6
+            self.joints_dof = self.nv - self._base_dof
+            self._S = np.zeros((self.joints_dof, self.nv))
+            self._S[:, self._base_dof:] = np.eye(self.joints_dof)
         else:
-            self._S = np.eye(self.nv)
-        
-        # Initialize the regressor matrix with proper dimension
-        # inertial parameters for each link, phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
-        self._num_inertial_params = 10
-        self._num_links = self._rmodel.njoints-1 # In pinocchio, universe is always in the kinematic tree with joint[id]=0
-        self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
-        self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
+            self._base_dof = 0
+            self.joints_dof = self.nv
+            self._S = np.eye(self.joints_dof)
         
         # Load robot configuration from YAML file
         with open(config_file, 'r') as file:
@@ -46,20 +43,31 @@ class SystemIdentification(object):
         self._robot_name = robot_config.get('name')
         self._robot_mass = robot_config.get('mass')
         
-        # List of bounding ellipsoids for all links
-        self._bounding_ellipsoids = []
-        for ellipsoid in robot_config.get('bounding_ellipsoids'):
-            ellipsoid['semi_axes'] = np.array(ellipsoid['semi_axes'])
-            ellipsoid['center'] = np.array(ellipsoid['center'])
-            self._bounding_ellipsoids.append(ellipsoid)
+        # List of link names
+        self._link_names = robot_config.get('link_names', [])
         
-        # List of the end_effector names
+        # List of end_effector names
         self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
         self._endeff_ids = [
             self._rmodel.getFrameId(name)
             for name in self._end_eff_frame_names
         ]
         self._nb_ee = len(self._end_eff_frame_names)
+        
+        # Initialize the regressor matrix with proper dimension
+        # inertial parameters for each link, phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz]
+        self._num_inertial_params = 10
+        self._num_links = len(self._link_names)
+        self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
+        self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
+        
+        # Initialize the friction regressors
+        self.B_v = np.eye(self.joints_dof) # Viscous friction
+        self.B_c = np.eye(self.joints_dof) # Coulomb friction
+        
+        # List of bounding ellipsoids for all links
+        self._bounding_ellipsoids = []
+        self._compute_bounding_ellipsoids()
         
         self._init_motion_subspace_dict()
         # self._show_kinematic_tree()
@@ -224,41 +232,41 @@ class SystemIdentification(object):
                 Y_i = jXi.action @ ind_regressors[joint_id]
         return self._Y
 
-    def compute_bounding_ellipsoids(self):
+    def _compute_bounding_ellipsoids(self):
         robot = URDF.from_xml_file(self._urdf_path)
-        self._bounding_ellipsoids = []
         for link in robot.links:
-            for visual in link.visuals:
-                geometry = visual.geometry
-                if isinstance(geometry, Box):
-                    size = np.array(geometry.size)
-                    semi_axes = size / 2
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Cylinder):
-                    radius = geometry.radius
-                    length = geometry.length
-                    semi_axes = [radius, radius, length / 2]
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Sphere):
-                    radius = geometry.radius
-                    semi_axes = [radius, radius, radius]
-                    center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                elif isinstance(geometry, Mesh):
-                    mesh_path = geometry.filename
-                    mesh = trimesh.load_mesh(mesh_path)
-                    semi_axes = mesh.bounding_box.extents / 2
-                    origin =  visual.origin.xyz
-                    center =  mesh.bounding_box.centroid + origin
-                else:
-                    raise ValueError(f"Unsupported geometry type for link {link.name}")
-                self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
+            if link.name in self._link_names:
+                for visual in link.visuals:
+                    geometry = visual.geometry
+                    if isinstance(geometry, Box):
+                        size = np.array(geometry.size)
+                        semi_axes = size / 2
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Cylinder):
+                        radius = geometry.radius
+                        length = geometry.length
+                        semi_axes = [radius, radius, length / 2]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Sphere):
+                        radius = geometry.radius
+                        semi_axes = [radius, radius, radius]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Mesh):
+                        mesh_path = geometry.filename
+                        mesh = trimesh.load_mesh(mesh_path)
+                        semi_axes = mesh.bounding_box.extents / 2
+                        origin =  visual.origin.xyz
+                        center =  mesh.bounding_box.centroid + origin
+                    else:
+                        raise ValueError(f"Unsupported geometry type for link {link.name}")
+                    self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
 
     def get_robot_mass(self):
         return self._robot_mass
     
     def get_num_links(self):
         return self._num_links
-    
+
     def get_bounding_ellipsoids(self):
         return self._bounding_ellipsoids
     
@@ -272,8 +280,8 @@ class SystemIdentification(object):
             self._phi_prior[j+9] = self._rmodel.inertias[i].inertia[2, 2]
         return self._phi_prior
     
-    def check_physical_consistency(self, phi):
-        # Returns the minimum eigenvalue of matrices in LMI constraints
+    def get_physical_consistency(self, phi):
+        # Returns the minimum eigenvalue of matrices in LMI constraints and trace(J@Q)
         # For phiysical consistency all values should be non-negative
         eigval_I_bar = []
         eigval_I = [] # Spatial body inertia
@@ -281,14 +289,12 @@ class SystemIdentification(object):
         eigval_com =[]
         trace_JQ = []
         
-        if len(self._bounding_ellipsoids)==0:
-            self.compute_bounding_ellipsoids()
-        
-        for j in range(0, phi.size, self._num_inertial_params):
+        for idx in range(self._num_links):
             # Extracting the inertial parameters
+            j = idx * self._num_inertial_params
             m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi[j: j+self._num_inertial_params]
             h = np.array([h_x, h_y, h_z])
-            ellipsoid_params = self._bounding_ellipsoids[j // self._num_inertial_params]
+            ellipsoid_params = self._bounding_ellipsoids[idx]
             semi_axes = ellipsoid_params['semi_axes']
             center = ellipsoid_params['center']
             
@@ -304,6 +310,13 @@ class SystemIdentification(object):
             I[3:, 0:3] = pin.skew(h).T
             I[3:, 3:] = m * np.eye(3)
             
+            # Pseudo inertia matrix (4x4)
+            J = np.zeros((4,4), dtype=np.float32)
+            J[:3, :3] = (1/2) * np.trace(I_bar) * np.eye(3) - I_bar
+            J[:3, 3] = h
+            J[3, :3] = h.T
+            J[3,3] = m            
+            
             # Bounding ellipsoid: Q matrix (4x4)
             Q_full = np.zeros((4,4), dtype=np.float32)
             Q = np.linalg.inv(np.diag(semi_axes)**2)
@@ -311,13 +324,6 @@ class SystemIdentification(object):
             Q_full[:3, 3] = Q @ center
             Q_full[3, :3] = (Q @ center).T
             Q_full[3, 3] = 1 - (center.T @ Q @ center)
-            
-            # Pseudo inertia matrix (4x4)
-            J = np.zeros((4,4), dtype=np.float32)
-            J[:3, :3] = 0.5 * np.trace(I_bar) * np.eye(3) - I_bar
-            J[:3, 3] = h
-            J[3, :3] = h.T 
-            J[3,3] = m
             
             # CoM constraint (4x4)
             C = np.zeros((4,4), dtype=np.float32)
@@ -341,15 +347,6 @@ class SystemIdentification(object):
             trace_JQ.append(density_realizable)
         return eigval_I_bar, eigval_I, eigval_J, eigval_com, trace_JQ
     
-    def get_projected_llsq_problem(self, q, dq, ddq, tau, contact_scedule):
-        # Returns the regressor matrix and joint torque vector projected into the null space of contacts
-        self._update_fk(q, dq, ddq)
-        Y = self._compute_regressor_matrix()
-        P = self._compute_null_space_proj(contact_scedule)
-        Y_proj = P @ Y
-        tau_proj = P @ self._S.T @ tau
-        return Y_proj, tau_proj
-    
     def get_full_regressor_force(self, q, dq, ddq, tau, ee_force, cnt):
         # Returns regressor matrix and force vector: (Y @ phi = force)
         # for floating base dynamics: M(q) @ ddq + h(q, dq) = S^T @ tau + J_c^T @ lambda
@@ -370,3 +367,78 @@ class SystemIdentification(object):
         Y_proj = P @ Y
         tau_proj = P @ self._S.T @ tau
         return Y_proj, tau_proj
+    
+    def get_proj_friction_regressors(self, q, dq, ddq, cnt):
+        # Returns the viscous and Coulumb friction matrices projected into the null-space of contatc Jacobian
+        self._update_fk(q, dq, ddq)
+        P = self._compute_null_space_proj(cnt)
+        B_v = P @ self._S.T @ np.diag(dq[self._base_dof:])
+        B_c = P @ self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
+        return B_v, B_c
+    
+    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name):
+        # Shows RMSE of predicted torques based on phi parameters
+        tau_pred = []
+        tau_meas = []
+        # For each data ponit we calculate the rgeressor and torque vector, and stack them
+        for i in range(q.shape[1]):
+            y, tau = self.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
+            tau_pred.append(y@phi)
+            tau_meas.append(tau)
+        tau_pred = np.vstack(tau_pred)
+        tau_meas = np.vstack(tau_meas)
+        
+        # Calculate the error
+        error = tau_pred - tau_meas
+
+        # Calculate the overall RMSE
+        rmse_total = np.mean(np.square(np.linalg.norm(error, axis=1)))
+        
+        # Calculate RMSE for each joint
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0))
+        print("\n--------------------Torque Prediction Errors--------------------")
+        print(f'RMSE for joint torques prediction using {param_name} parameters: total= {rmse_total}\nper_joints={joint_tau_rmse}')
+    
+    def print_inertial_parametrs(self, prior, identified):
+        total_m_prior = 0
+        total_m_ident = 0
+        for i in range(self._num_links):
+            print(f'---------------- Inertial Parameters of "{self._link_names[i]}" ----------------')
+            print(f'|{"Parameter":<{13}}|{"A priori":<{13}}|{"Identified":<{13}}|{"Change":<{13}}|{"error%":<{13}}|')
+            index = 10*i
+            m_prior = prior[index]
+            m_ident = identified[index]
+            
+            com_prior = prior[index+1: index+4]/m_prior
+            com_ident = identified[index+1: index+4]/m_ident
+            
+            inertia_prior = prior[index+4:index+10]
+            inertia_ident = identified[index+4:index+10]
+            
+            self._print_table("mass (Kg)", m_prior, m_ident)
+            self._print_table("c_x (m)", com_prior[0], com_ident[0])
+            self._print_table("c_y (m)", com_prior[1], com_ident[2])
+            self._print_table("c_z (m)", com_prior[1], com_ident[2])
+            self._print_table("I_xx (kg.m^2)", inertia_prior[0], inertia_ident[0])
+            self._print_table("I_xy (kg.m^2)", inertia_prior[1], inertia_ident[1])
+            self._print_table("I_xz (kg.m^2)", inertia_prior[2], inertia_ident[2])
+            self._print_table("I_yy (kg.m^2)", inertia_prior[3], inertia_ident[3])
+            self._print_table("I_yz (kg.m^2)", inertia_prior[4], inertia_ident[4])
+            self._print_table("I_zz (kg.m^2)", inertia_prior[5], inertia_ident[5])
+
+            total_m_prior += m_prior
+            total_m_ident += m_ident
+        print(f'\nRobot total mass: {total_m_prior} ---- Identified total mass: {total_m_ident}')
+        
+    def _print_table(self, description, prior, ident):
+        width = 13
+        precision = 6
+        change = ident - prior
+        error = np.divide(change, prior, out=np.zeros_like(change), where=prior!=0) * 100
+        print(
+        f'|{description:<{width}}|'
+        f'{prior:>{width}.{precision}f}|'
+        f'{ident:>{width}.{precision}f}|'
+        f'{change:>{width}.{precision}f}|'
+        f'{error:>{width}.{precision}f}|'
+        )
