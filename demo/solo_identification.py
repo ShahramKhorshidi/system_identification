@@ -15,7 +15,7 @@ def read_data(path, motion_name, filter_type):
     if filter_type=="butterworth":
         # Butterworth filter parameters
         order = 5  # Filter order
-        cutoff_freq = 0.25  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
@@ -72,7 +72,7 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 
 def main():
     path = "/home/khorshidi/git/system_identification/"
-    motion_name = "solo"
+    motion_name = "noisy"
     filter_type = "butterworth" # "savitzky" "butterworth"
     q, dq, ddq, torque, force, cnt = read_data(path+"data/solo/", motion_name, filter_type)
     robot_urdf = path+"files/solo_description/"+"solo12.urdf"
@@ -86,7 +86,7 @@ def main():
     
     # Prior values for the inertial parameters
     phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"data/solo/"+"phi_prior.dat", phi_prior, delimiter='\t')
+    np.savetxt(path+"data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
@@ -115,10 +115,9 @@ def main():
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent()
+    phi_proj_lmi = solver_proj.solve_fully_consistent()
     np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     
-    print("b_v:\n", b_v)
-    print("b_c:\n", b_c)
+    
 if __name__ == "__main__":
     main()
