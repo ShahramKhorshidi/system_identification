@@ -393,7 +393,73 @@ class SystemIdentification(object):
         lamda = self._compute_lambda(force, cnt)
         F = J_c.T @ lamda# + self._S.T @ torque
         return Y, tau, F
+    
+    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name):
+        # Shows RMSE of predicted torques based on phi parameters
+        tau_pred = []
+        tau_meas = []
+        # For each data ponit we calculate the rgeressor and torque vector, and stack them
+        for i in range(q.shape[1]):
+            y, tau = self.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
+            tau_pred.append((y@phi)[6:])
+            tau_meas.append(tau[6:])
+        tau_pred = np.vstack(tau_pred)
+        tau_meas = np.vstack(tau_meas)
+        
+        # Calculate the error
+        error = tau_pred - tau_meas
 
+        # Calculate the overall RMSE
+        rmse_total = np.mean(np.square(np.linalg.norm(error, axis=1)))
+        
+        # Calculate RMSE for each joint
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0))
+        print("\n--------------------Torque Prediction Errors--------------------")
+        print(f'RMSE for joint torques prediction using {param_name} parameters: total= {rmse_total}\nper_joints={joint_tau_rmse}')
+    
+    def print_inertial_parametrs(self, prior, identified):
+        total_m_prior = 0
+        total_m_ident = 0
+        for i in range(self._num_links):
+            print(f'---------------- Inertial Parameters of "{self._link_names[i]}" ----------------')
+            print(f'|{"Parameter":<{13}}|{"A priori":<{13}}|{"Identified":<{13}}|{"Change":<{13}}|{"error%":<{13}}|')
+            index = 10*i
+            m_prior = prior[index]
+            m_ident = identified[index]
+            
+            com_prior = prior[index+1: index+4]/m_prior
+            com_ident = identified[index+1: index+4]/m_ident
+            
+            inertia_prior = prior[index+4:index+10]
+            inertia_ident = identified[index+4:index+10]
+            
+            self._print_table("mass (Kg)", m_prior, m_ident)
+            self._print_table("c_x (m)", com_prior[0], com_ident[0])
+            self._print_table("c_y (m)", com_prior[1], com_ident[2])
+            self._print_table("c_z (m)", com_prior[1], com_ident[2])
+            self._print_table("I_xx (kg.m^2)", inertia_prior[0], inertia_ident[0])
+            self._print_table("I_xy (kg.m^2)", inertia_prior[1], inertia_ident[1])
+            self._print_table("I_xz (kg.m^2)", inertia_prior[2], inertia_ident[2])
+            self._print_table("I_yy (kg.m^2)", inertia_prior[3], inertia_ident[3])
+            self._print_table("I_yz (kg.m^2)", inertia_prior[4], inertia_ident[4])
+            self._print_table("I_zz (kg.m^2)", inertia_prior[5], inertia_ident[5])
+
+            total_m_prior += m_prior
+            total_m_ident += m_ident
+        print(f'\nRobot total mass: {total_m_prior} ---- Identified total mass: {total_m_ident}')
+        
+    def _print_table(self, description, prior, ident):
+        width = 13
+        precision = 6
+        change = ident - prior
+        error = np.divide(change, prior, out=np.zeros_like(change), where=prior!=0) * 100
+        print(
+        f'|{description:<{width}}|'
+        f'{prior:>{width}.{precision}f}|'
+        f'{ident:>{width}.{precision}f}|'
+        f'{change:>{width}.{precision}f}|'
+        f'{error:>{width}.{precision}f}|'
+        )
 
 if __name__ == "__main__":
     path = Path.cwd()
