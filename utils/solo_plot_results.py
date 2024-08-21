@@ -25,32 +25,6 @@ def read_data(path, motion_name, data_noisy):
         robot_ee_force = signal.filtfilt(b, a, robot_ee_force, axis=1)
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_ee_force, robot_contact
 
-def overall_rmse(q, dq, ddq, torque, cnt, phi, sys_idnt):
-    predicted = []
-    measured = []
-    # For each data ponit we calculate the rgeressor and torque vector, and stack them
-    for i in range(q.shape[1]):
-        y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-        predicted.append(y@phi)
-        measured.append(tau)
-    
-    predicted = np.vstack(predicted)
-    measured = np.vstack(measured)
-    
-    # Calculate the error
-    error = predicted - measured
-
-    # Calculate the norm of the error for each sample
-    error_norms = np.linalg.norm(error, axis=1)
-
-    # Calculate the MSE of the error norms
-    mse_total = np.mean(np.square(error_norms))
-    
-    # Calculate the overall RMSE
-    rmse_total = np.sqrt(mse_total)
-    
-    return rmse_total
-
 def plot_mass(phi_prior, calculated_phi, title):
     # Extract the mass values (every 10th element starting from the 0th element)
     masses_prior = phi_prior[::10]
@@ -277,16 +251,6 @@ def plot_proj_torques(q, dq, ddq, torque, cnt, phi, sys_idnt, title):
     axes[3][0].set_ylabel('HR - Torque (Nm)')
     plt.tight_layout()
     
-    # Calculate the error
-    error = predicted - measured
-    
-    # Calculate MSE for each joint
-    mse_per_joint = np.mean(np.square(error), axis=0)
-    
-    # Calculate RMSE for each joint
-    rmse_per_joint = np.sqrt(mse_per_joint)
-    print("\n", title, "-- RMSE per joint:", rmse_per_joint)
-    
 def plot_eigval(I_bar, I, J, C, trace, title):
     num_links = 13
 
@@ -331,19 +295,13 @@ if __name__ == "__main__":
     robot_config = path/"files"/"solo_description"/"solo12_config.yaml"
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
-    # RMSE Results
-    rmse_phi_prior = overall_rmse(q, dq, ddq, torque, cnt, phi_prior, sys_idnt)
-    rmse_full_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_full_llsq, sys_idnt)
-    rmse_full_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_full_lmi, sys_idnt)
-    rmse_proj_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt)
-    rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
-    
-    print("------ Phi Prior ------")
-    print("RMSE prior: ", rmse_phi_prior)
-    print("\n------ Full Sensing ------")
-    print("RMSE llsq: ", rmse_full_llsq, "RMSE LMI: ", rmse_full_lmi)
-    print("\n------ Projected ------")
-    print("RMSE llsq: ", rmse_proj_llsq, "RMSE LMI: ", rmse_proj_lmi)
+    # Show Results
+    sys_idnt.print_inertial_parametrs(phi_prior, phi_proj_lmi)
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_prior, "Prior")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_llsq, "Full_llsq")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_lmi, "Full_lmi")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, "Proj_llsq")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, "Proj_lmi")
     
     # Plot physical consistency
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)

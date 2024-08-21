@@ -23,32 +23,6 @@ def read_data(path, motion_name, data_noisy):
         robot_tau = signal.filtfilt(b, a, robot_tau, axis=1)
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
-def overall_rmse(q, dq, ddq, torque, cnt, phi, sys_idnt):
-    predicted = []
-    measured = []
-    # For each data ponit we calculate the rgeressor and torque vector, and stack them
-    for i in range(q.shape[1]):
-        y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-        predicted.append(y@phi)
-        measured.append(tau)
-    
-    predicted = np.vstack(predicted)
-    measured = np.vstack(measured)
-    
-    # Calculate the error
-    error = predicted - measured
-
-    # Calculate the norm of the error for each sample
-    error_norms = np.linalg.norm(error, axis=1)
-
-    # Calculate the MSE of the error norms
-    mse_total = np.mean(np.square(error_norms))
-    
-    # Calculate the overall RMSE
-    rmse_total = np.sqrt(mse_total)
-    
-    return rmse_total
-
 def plot_mass(phi_prior, calculated_phi, title):
     # Extract the mass values (every 10th element starting from the 0th element)
     masses_prior = phi_prior[::10]
@@ -275,16 +249,6 @@ def plot_proj_torques(q, dq, ddq, torque, cnt, phi, sys_idnt, title):
     axes[3][0].set_ylabel('HR - Torque (Nm)')
     plt.tight_layout()
     
-    # Calculate the error
-    error = predicted - measured
-    
-    # Calculate MSE for each joint
-    mse_per_joint = np.mean(np.square(error), axis=0)
-    
-    # Calculate RMSE for each joint
-    rmse_per_joint = np.sqrt(mse_per_joint)
-    print("\n", title, "-- RMSE per joint:", rmse_per_joint)
-    
 def plot_eigval(I_bar, I, J, C, trace, title):
     num_links = 13
 
@@ -326,33 +290,30 @@ if __name__ == "__main__":
     robot_config = path/"files"/"go1_description"/"go1_config.yaml"
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
-    # RMSE Results
-    rmse_phi_prior = overall_rmse(q, dq, ddq, torque, cnt, phi_prior, sys_idnt)
-    rmse_proj_llsq = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt)
-    rmse_proj_lmi = overall_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt)
-    
-    print("\n------ RMSE Vlaues ------")
-    print("RMSE Prior: ", rmse_phi_prior, "\nRMSE llsq: ", rmse_proj_llsq, "\nRMSE LMI: ", rmse_proj_lmi)
-    print("\n-------------------------")
+    # Show Results
+    sys_idnt.print_inertial_parametrs(phi_prior, phi_proj_lmi)
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_prior, "Prior")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, "Proj_llsq")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, "Proj_lmi")
     
     # Plot physical consistency
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
     plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Prior_physical consistency")
     
-    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
-    plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
+    # I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
+    # plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
 
     I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
     plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Constrained LMI")
     
     # Plots
-    plot_mass(phi_prior, phi_proj_llsq, "Projected llsq_Mass")
+    # plot_mass(phi_prior, phi_proj_llsq, "Projected llsq_Mass")
     plot_mass(phi_prior, phi_proj_lmi, "Projected LMI_Mass")
     
-    plot_h(phi_prior, phi_proj_llsq, "Projected llsq_First Moment")
+    # plot_h(phi_prior, phi_proj_llsq, "Projected llsq_First Moment")
     plot_h(phi_prior, phi_proj_lmi, "Projected LMI_First moment")
     
-    plot_inertia(phi_prior, phi_proj_llsq, "Projected llsq_Second Moment")
+    # plot_inertia(phi_prior, phi_proj_llsq, "Projected llsq_Second Moment")
     plot_inertia(phi_prior, phi_proj_lmi, "Projected LMI_Second Moment")
 
     plot_proj_torques(q, dq, ddq, torque, cnt, phi_prior, sys_idnt, "Phi prior")
