@@ -5,6 +5,7 @@ import scipy.signal as signal
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
+
 def preprocessing(path, motion_name):    
     # Read the CSV file into numpy arrays
     df = pd.read_csv(path+motion_name)
@@ -82,7 +83,6 @@ def preprocessing(path, motion_name):
     ddq = ddq[:, ::3]
     tau = tau[:, ::3]
     cnt = cnt[:, ::3] 
-    
     return q, dq, ddq, tau, cnt
 
 def finite_diff(dq):
@@ -104,7 +104,6 @@ def finite_diff(dq):
         dq_curr = dq_filt[:, i]
         ddq[:, i] = (dq_curr - dq_prev) / dt
         dq_prev = dq_curr
-        
     return ddq
             
 def plot(data):

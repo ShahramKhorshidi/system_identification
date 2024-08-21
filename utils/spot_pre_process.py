@@ -5,6 +5,7 @@ import scipy.signal as signal
 import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
+
 def preprocessing(n, path, motion_name):    
     # Read the CSV file into numpy arrays
     df = pd.read_csv(path+motion_name)
@@ -50,7 +51,6 @@ def preprocessing(n, path, motion_name):
         for idx in range(4):
             if cnt[i, idx] == 1:
                 contact[idx, i] = 1
-        
     return time, q, dq, ddq, tau, contact
 
 def finite_diff(time, dq):
@@ -63,7 +63,6 @@ def finite_diff(time, dq):
         dq_curr = dq[:, i]
         ddq[i] = (dq_curr - dq_prev) / dt
         dq_prev = dq_curr
-        
     return ddq
             
 def plot(data):
@@ -96,7 +95,6 @@ def plot(data):
     plt.tight_layout()
     plt.show()
     
-
 def plot_2(data1, data2):
     # Plot two data arrays of the same dimension (Used for comparison of q_odom and q_vision)
     fig, axs = plt.subplots(6, figsize=(10, 20))
