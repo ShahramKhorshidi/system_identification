@@ -1,0 +1,22 @@
+robot:
+  name: "spot"
+  mass: 34.0 # Kg
+  end_effectors_frame_names:
+    - "fl_foot"
+    - "fr_foot"
+    - "rl_foot"
+    - "rr_foot"
+  link_names:
+    - "base_link"
+    - "front_left_hip"
+    - "front_left_upper_leg"
+    - "front_left_lower_leg"
+    - "front_right_hip"
+    - "front_right_upper_leg"
+    - "front_right_lower_leg"
+    - "rear_left_hip"
+    - "rear_left_upper_leg"
+    - "rear_left_lower_leg"
+    - "rear_right_hip"
+    - "rear_right_upper_leg"
+    - "rear_right_lower_leg"
