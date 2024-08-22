@@ -1,8 +1,8 @@
+import os
 import yaml
 import trimesh
 import numpy as np
 import pinocchio as pin
-from pathlib import Path
 from numpy.linalg import pinv
 from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
@@ -252,7 +252,7 @@ class SystemIdentification(object):
                         semi_axes = [radius, radius, radius]
                         center = visual.origin.xyz if visual.origin else [0, 0, 0]
                     elif isinstance(geometry, Mesh):
-                        mesh_path = geometry.filename
+                        mesh_path = os.getcwd()+"/files/"+geometry.filename[10:]
                         mesh = trimesh.load_mesh(mesh_path)
                         semi_axes = mesh.bounding_box.extents / 2
                         origin =  visual.origin.xyz
