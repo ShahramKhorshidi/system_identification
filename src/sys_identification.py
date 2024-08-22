@@ -376,6 +376,7 @@ class SystemIdentification(object):
         B_c = P @ self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
         return B_v, B_c
     
+    # Metods to print and show the results 
     def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name):
         # Shows RMSE of predicted torques based on phi parameters
         tau_pred = []
@@ -388,23 +389,27 @@ class SystemIdentification(object):
         tau_pred = np.vstack(tau_pred)
         tau_meas = np.vstack(tau_meas)
         
-        # Calculate the error
         error = tau_pred - tau_meas
-
-        # Calculate the overall RMSE
-        rmse_total = np.mean(np.square(np.linalg.norm(error, axis=1)))
-        
-        # Calculate RMSE for each joint
-        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0))
+        rmse_total = np.mean(np.square(np.linalg.norm(error, axis=1))) # overall RMSE
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
         print("\n--------------------Torque Prediction Errors--------------------")
         print(f'RMSE for joint torques prediction using {param_name} parameters: total= {rmse_total}\nper_joints={joint_tau_rmse}')
     
     def print_inertial_parametrs(self, prior, identified):
         total_m_prior = 0
         total_m_ident = 0
+        self._cell_width = 13
         for i in range(self._num_links):
-            print(f'---------------- Inertial Parameters of "{self._link_names[i]}" ----------------')
-            print(f'|{"Parameter":<{13}}|{"A priori":<{13}}|{"Identified":<{13}}|{"Change":<{13}}|{"error%":<{13}}|')
+            expression = f'Inertial Parameters of "{self._link_names[i]}"'
+            dash_length = (69 - len(expression)) // 2
+            print(f'\n{"-"*dash_length} {expression} {"-"*(69-len(expression)-dash_length)}')
+            print(
+                f'|{"Parameter":<{self._cell_width}}|'
+                f'{"A priori":<{self._cell_width}}|'
+                f'{"Identified":<{self._cell_width}}|'
+                f'{"Change":<{self._cell_width}}|'
+                f'{"error %":<{self._cell_width}}|'
+            )
             index = 10*i
             m_prior = prior[index]
             m_ident = identified[index]
@@ -415,30 +420,30 @@ class SystemIdentification(object):
             inertia_prior = prior[index+4:index+10]
             inertia_ident = identified[index+4:index+10]
             
-            self._print_table("mass (Kg)", m_prior, m_ident)
+            self._print_table("mass (kg)", m_prior, m_ident)
             self._print_table("c_x (m)", com_prior[0], com_ident[0])
-            self._print_table("c_y (m)", com_prior[1], com_ident[2])
-            self._print_table("c_z (m)", com_prior[1], com_ident[2])
+            self._print_table("c_y (m)", com_prior[1], com_ident[1])
+            self._print_table("c_z (m)", com_prior[2], com_ident[2])
             self._print_table("I_xx (kg.m^2)", inertia_prior[0], inertia_ident[0])
             self._print_table("I_xy (kg.m^2)", inertia_prior[1], inertia_ident[1])
             self._print_table("I_xz (kg.m^2)", inertia_prior[2], inertia_ident[2])
             self._print_table("I_yy (kg.m^2)", inertia_prior[3], inertia_ident[3])
             self._print_table("I_yz (kg.m^2)", inertia_prior[4], inertia_ident[4])
             self._print_table("I_zz (kg.m^2)", inertia_prior[5], inertia_ident[5])
-
+            
             total_m_prior += m_prior
             total_m_ident += m_ident
         print(f'\nRobot total mass: {total_m_prior} ---- Identified total mass: {total_m_ident}')
         
     def _print_table(self, description, prior, ident):
-        width = 13
         precision = 6
         change = ident - prior
-        error = np.divide(change, prior, out=np.zeros_like(change), where=prior!=0) * 100
+        error = np.divide(change, np.abs(prior), where=prior!=0) * 100
+        error = np.where(np.abs(prior) <= 1e-8, np.nan, error)
         print(
-        f'|{description:<{width}}|'
-        f'{prior:>{width}.{precision}f}|'
-        f'{ident:>{width}.{precision}f}|'
-        f'{change:>{width}.{precision}f}|'
-        f'{error:>{width}.{precision}f}|'
+        f'|{description:<{self._cell_width}}|'
+        f'{prior:>{self._cell_width}.{precision}f}|'
+        f'{ident:>{self._cell_width}.{precision}f}|'
+        f'{change:>{self._cell_width}.{precision}f}|'
+        f'{error:>{self._cell_width}.{1}f}|'
         )
