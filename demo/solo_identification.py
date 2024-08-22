@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
@@ -54,11 +55,11 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
     return B_v, B_c
 
 def main():
-    path = "/home/khorshidi/git/system_identification/"
+    path = os.getcwd()
     filter_type = "butterworth" # "savitzky" or "butterworth"
-    q, dq, ddq, tau, cnt = read_data(path+"data/solo/", filter_type)
-    robot_urdf = path+"files/solo_description/"+"solo12.urdf"
-    robot_config = path+"files/solo_description/"+"solo12_config.yaml"
+    q, dq, ddq, tau, cnt = read_data(path+"/data/solo/", filter_type)
+    robot_urdf = path+"/files/solo_description/"+"solo12.urdf"
+    robot_config = path+"/files/solo_description/"+"solo12_config.yaml"
     
     # Instantiate the identification problem
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
