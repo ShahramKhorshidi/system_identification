@@ -113,7 +113,7 @@ def plot_2(data1, data2):
 if __name__ == "__main__":
     # Read the dats of different trajecories, "squat", "pose", "walk" and "crawl"
     path = "/home/khorshidi/git/system_identification/data/spot/"
-    num_samples = 3000 # Number of samples for each trajectory
+    num_samples = 4000 # Number of samples for each trajectory
     time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files/spot_squat.csv")
     time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files/spot_pose.csv")
     time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files/spot_walk_speed_slow_height_high_turn_around.csv")

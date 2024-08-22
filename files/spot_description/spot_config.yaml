@@ -1,6 +1,6 @@
 robot:
   name: "spot"
-  mass: 34 # Kg
+  mass: 34.0 # Kg
   end_effectors_frame_names:
     - "fl_foot"
     - "fr_foot"

@@ -14,14 +14,13 @@ def read_data(path, motion_name, data_noisy):
     robot_contact = np.loadtxt(path/f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
     if data_noisy:
         # Butterworth filter parameters
-        order = 10  # Filter order
-        cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        order = 5  # Filter order
+        cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
         # Apply Butterworth filter to each data (row in the data array)
         robot_dq = signal.filtfilt(b, a, robot_dq, axis=1)
         robot_ddq = signal.filtfilt(b, a, robot_ddq, axis=1)
-        robot_tau = signal.filtfilt(b, a, robot_tau, axis=1)
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
 
@@ -29,7 +28,7 @@ if __name__ == "__main__":
     path = Path.cwd()
     
     motion_name = "spot"
-    q, dq, ddq, torque, cnt = read_data(path/"data"/"spot", motion_name, False)
+    q, dq, ddq, torque, cnt = read_data(path/"data"/"spot", motion_name, True)
     
     phi_prior = np.loadtxt(path/"data"/"spot"/"spot_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_proj_llsq = np.loadtxt(path/"data"/"spot"/"spot_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
@@ -49,7 +48,7 @@ if __name__ == "__main__":
     # Plot physical consistency
     plotter = PlotClass(phi_prior ,phi_proj_lmi)
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
-    plotter.plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Prior_physical consistency")
+    plotter.plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Phi Prior")
     
     # I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_proj_llsq)
     # plotter.plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Unconstrained llsq")
