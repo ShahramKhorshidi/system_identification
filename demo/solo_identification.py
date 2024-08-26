@@ -96,16 +96,16 @@ def main():
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
     
     # -------- Using full force/torque sensing -------- #
-    # Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
-    # Y = np.vstack(Y)
-    # Force = np.hstack(Force)
-    # solver_full = Solver(Y, Force, num_of_links, phi_prior, total_mass, bounding_ellipsoids)
+    Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
+    Y = np.vstack(Y)
+    Force = np.hstack(Force)
+    solver_full = Solver(Y, Force, num_of_links, phi_prior, total_mass, bounding_ellipsoids)
 
-    # phi_full_llsq = solver_full.solve_llsq_svd()
-    # np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
+    phi_full_llsq = solver_full.solve_llsq_svd()
+    np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
     
-    # phi_full_lmi = solver_full.solve_fully_consistent()
-    # np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
+    phi_full_lmi = solver_full.solve_fully_consistent()
+    np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
     
     # -------- Using Null space projection -------- #
     Y_proj, tau_proj, tau_np = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
