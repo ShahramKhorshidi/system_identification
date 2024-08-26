@@ -1,5 +1,5 @@
+import os
 import numpy as np
-from pathlib import Path
 import scipy.signal as signal
 import matplotlib.pyplot as plt
 from utils.plot_calss import PlotClass
@@ -7,11 +7,11 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, data_noisy):
-    robot_q = np.loadtxt(path/f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)
-    robot_dq = np.loadtxt(path/f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    robot_ddq = np.loadtxt(path/f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    robot_tau = np.loadtxt(path/f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_contact = np.loadtxt(path/f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
+    robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)
+    robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)
+    robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)
+    robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
     if data_noisy:
         # Butterworth filter parameters
         order = 5  # Filter order
@@ -25,18 +25,19 @@ def read_data(path, motion_name, data_noisy):
 
 
 if __name__ == "__main__":
-    path = Path.cwd()
+    path = os.getcwd()
+    path = os.path.dirname(path)
     
     motion_name = "go1"
-    q, dq, ddq, torque, cnt = read_data(path/"data"/"go1", motion_name, True)
+    q, dq, ddq, torque, cnt = read_data(path+"/data/go1/", motion_name, True)
     
-    phi_prior = np.loadtxt(path/"data"/"go1"/"go1_phi_prior.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_llsq = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
-    phi_proj_lmi = np.loadtxt(path/"data"/"go1"/"go1_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = np.loadtxt(path+"/data/go1/go1_phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_llsq = np.loadtxt(path+"/data/go1/go1_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
+    phi_proj_lmi = np.loadtxt(path+"/data/go1/go1_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
     
     # Instantiate the identification problem
-    robot_urdf = path/"files"/"go1_description"/"go1.urdf"
-    robot_config = path/"files"/"go1_description"/"go1_config.yaml"
+    robot_urdf = path+"/files/go1_description/go1.urdf"
+    robot_config = path+"/files/go1_description/go1_config.yaml"
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # Show Results

@@ -8,12 +8,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/body.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/body.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/body_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/body_collision.obj"/>
       </geometry>
     </collision>
   </link>
@@ -21,7 +21,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/body.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/body.obj"/>
       </geometry>
     </visual>
     <inertial>
@@ -63,7 +63,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_left_hip.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_left_hip.obj"/>
       </geometry>
     </visual>
     <inertial>
@@ -83,12 +83,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_left_upper_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_left_upper_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/left_upper_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/left_upper_leg_collision.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -108,12 +108,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_left_lower_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_left_lower_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/left_lower_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/left_lower_leg_collision.obj"/>
       </geometry>
     </collision>
     <collision>
@@ -157,7 +157,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_right_hip.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_right_hip.obj"/>
       </geometry>
     </visual>
     <inertial>
@@ -177,12 +177,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_right_upper_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_right_upper_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/right_upper_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/right_upper_leg_collision.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -202,12 +202,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/front_right_lower_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/front_right_lower_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/right_lower_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/right_lower_leg_collision.obj"/>
       </geometry>
     </collision>
     <collision>
@@ -251,7 +251,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_left_hip.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_left_hip.obj"/>
       </geometry>
     </visual>
     <inertial>
@@ -271,12 +271,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_left_upper_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_left_upper_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/left_upper_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/left_upper_leg_collision.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -296,12 +296,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_left_lower_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_left_lower_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/left_lower_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/left_lower_leg_collision.obj"/>
       </geometry>
     </collision>
     <collision>
@@ -345,7 +345,7 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_right_hip.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_right_hip.obj"/>
       </geometry>
     </visual>
     <inertial>
@@ -365,12 +365,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_right_upper_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_right_upper_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/right_upper_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/right_upper_leg_collision.obj"/>
       </geometry>
     </collision>
     <inertial>
@@ -390,12 +390,12 @@
     <visual>
       <origin rpy="0 0 0" xyz="0 0 0"/>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/visual/rear_right_lower_leg.obj"/>
+        <mesh filename="package://spot_description/meshes/base/visual/rear_right_lower_leg.obj"/>
       </geometry>
     </visual>
     <collision>
       <geometry>
-        <mesh filename="/home/khorshidi/git/system_identification/files/spot_description/meshes/base/collision/right_lower_leg_collision.obj"/>
+        <mesh filename="package://spot_description/meshes/base/collision/right_lower_leg_collision.obj"/>
       </geometry>
     </collision>
     <collision>
