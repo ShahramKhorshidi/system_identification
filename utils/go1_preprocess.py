@@ -1,3 +1,4 @@
+import os
 import pandas as pd
 import numpy as np
 import pinocchio as pin
@@ -153,7 +154,10 @@ def plot_2(data1, data2):
 
     
 if __name__ == "__main__":
-    path = "/home/khorshidi/git/system_identification/data/go1/"
+    # Read the data
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
+    path = parent_dir_path+"/data/go1/"
     downsampling = 3
     q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/wobbling_base.csv", k=downsampling)
     q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/walking.csv", k=downsampling)

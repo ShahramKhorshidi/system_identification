@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
@@ -56,12 +57,13 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 
 def main():
     # Read the data
-    path = "/home/khorshidi/git/system_identification/"
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.dirname(dir_path) # Root directory of the workspace
     motion_name = "spot"
     filter_type = "butterworth" # savitzky or butterworth
-    q, dq, ddq, torque, cnt = read_data(path+"data/spot/", motion_name, filter_type)
-    robot_urdf = path+"files/spot_description/"+"spot.urdf"
-    robot_config = path+"files/spot_description/"+"spot_config.yaml"
+    q, dq, ddq, torque, cnt = read_data(path+"/data/spot/", motion_name, filter_type)
+    robot_urdf = path+"/files/spot_description/"+"spot.urdf"
+    robot_config = path+"/files/spot_description/"+"spot_config.yaml"
     
     # Instantiate the identification problem
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
@@ -71,7 +73,7 @@ def main():
     
     # Prior values for the inertial parameters
     phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"data/spot/"+"spot_phi_prior.dat", phi_prior, delimiter='\t')
+    np.savetxt(path+"/data/spot/"+"spot_phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
@@ -86,10 +88,10 @@ def main():
     solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
-    np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
+    np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
     phi_proj_lmi = solver_proj.solve_fully_consistent()
-    np.savetxt(path+"data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
+    np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
 
 if __name__ == "__main__":
     main()

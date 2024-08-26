@@ -1,3 +1,4 @@
+import os
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
@@ -52,12 +53,14 @@ def get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt):
 def get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt):
     Y = []
     Tau = []
+    tau_proj = np.zeros((12, q.shape[1]), dtype=np.float32)
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
         y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
         Y.append(y)
         Tau.append(tau)
-    return Y, Tau
+        tau_proj[:, i] = tau[6:]
+    return Y, Tau, tau_proj
 
 # Calculates the friction regressors (B_v and B_c) projected into the null space of contact for all data points
 def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
@@ -71,12 +74,13 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
     return B_v, B_c
 
 def main():
-    path = "/home/khorshidi/git/system_identification/"
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.dirname(dir_path) # Root directory of the workspace
     motion_name = "noisy"
     filter_type = "butterworth" # "savitzky" "butterworth"
-    q, dq, ddq, torque, force, cnt = read_data(path+"data/solo/", motion_name, filter_type)
-    robot_urdf = path+"files/solo_description/"+"solo12.urdf"
-    robot_config = path+"files/solo_description/"+"solo12_config.yaml"
+    q, dq, ddq, torque, force, cnt = read_data(path+"/data/solo/", motion_name, filter_type)
+    robot_urdf = path+"/files/solo_description/"+"solo12.urdf"
+    robot_config = path+"/files/solo_description/"+"solo12_config.yaml"
     
     # Instantiate the identification problem
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
@@ -86,25 +90,26 @@ def main():
     
     # Prior values for the inertial parameters
     phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
+    np.savetxt(path+"/data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
     
     # Bounding ellipsoids
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
     
     # -------- Using full force/torque sensing -------- #
-    Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
-    Y = np.vstack(Y)
-    Force = np.hstack(Force)
-    solver_full = Solver(Y, Force, num_of_links, phi_prior, total_mass, bounding_ellipsoids)
+    # Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
+    # Y = np.vstack(Y)
+    # Force = np.hstack(Force)
+    # solver_full = Solver(Y, Force, num_of_links, phi_prior, total_mass, bounding_ellipsoids)
 
-    phi_full_llsq = solver_full.solve_llsq_svd()
-    np.savetxt(path+"data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
+    # phi_full_llsq = solver_full.solve_llsq_svd()
+    # np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
     
-    phi_full_lmi = solver_full.solve_fully_consistent()
-    np.savetxt(path+"data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
+    # phi_full_lmi = solver_full.solve_fully_consistent()
+    # np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_lmi.dat", phi_full_lmi, delimiter='\t')
     
     # -------- Using Null space projection -------- #
-    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
+    Y_proj, tau_proj, tau_np = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
+    # np.savetxt(path+"/data/solo/"+"tau_np.dat", tau_np, delimiter='\t')
     B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt)
     Y_proj = np.vstack(Y_proj)
     tau_proj = np.hstack(tau_proj)
@@ -113,10 +118,10 @@ def main():
     solver_proj = Solver(Y_proj, tau_proj, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v_proj, B_c=B_c_proj)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
-    np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
+    np.savetxt(path+"/data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
     phi_proj_lmi = solver_proj.solve_fully_consistent()
-    np.savetxt(path+"data/solo/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
+    np.savetxt(path+"/data/solo/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     
     
 if __name__ == "__main__":

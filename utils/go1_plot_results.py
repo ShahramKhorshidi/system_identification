@@ -25,8 +25,8 @@ def read_data(path, motion_name, data_noisy):
 
 
 if __name__ == "__main__":
-    path = os.getcwd()
-    path = os.path.dirname(path)
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.dirname(dir_path) # Root directory of the workspace
     
     motion_name = "go1"
     q, dq, ddq, torque, cnt = read_data(path+"/data/go1/", motion_name, True)

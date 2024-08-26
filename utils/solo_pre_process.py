@@ -1,3 +1,4 @@
+import os
 import numpy as np
 from pathlib import Path
 import scipy.signal as signal
@@ -5,10 +6,8 @@ import matplotlib.pyplot as plt
 from scipy.signal import savgol_filter
 
 
-def preprocessing():
+def preprocessing(path):
     # Read the data.
-    path = "/home/khorshidi/git/system_identification/data/solo/"
-
     robot_q = []
     robot_dq = []
     robot_ddq = []
@@ -38,8 +37,7 @@ def preprocessing():
     np.savetxt(path+"solo_robot_ee_force.dat", force, delimiter='\t')
     np.savetxt(path+"solo_robot_contact.dat", contact, delimiter='\t')
 
-def plot_data(motion_name):
-    path = Path.cwd()/"data/solo/"
+def plot_data(path, motion_name):
     robot_q = np.loadtxt(path/f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float64)
     robot_dq = np.loadtxt(path/f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float64)
     robot_ddq = np.loadtxt(path/f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float64)
@@ -78,5 +76,8 @@ def plot_data(motion_name):
     plt.show()
     
 if __name__ == "__main__":
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
+    path = parent_dir_path+"/data/solo/"
     # preprocessing()
-    plot_data("noisy")
+    plot_data(path, "noisy")
