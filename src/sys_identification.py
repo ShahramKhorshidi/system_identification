@@ -284,7 +284,6 @@ class SystemIdentification(object):
                                     [I_xy, I_yy, I_yz],
                                     [I_xz, I_yz, I_zz]])
                     self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
-        return self.inertial_params
                     
     def get_robot_mass(self):
         return self._robot_mass
@@ -298,53 +297,22 @@ class SystemIdentification(object):
     def get_phi_prior(self):
         # Returns the inertial parameters of all link concatenated in 1-D vector (size=10*num_link)
         # The inertial parameters of each link is expressed w.r.t the body_frame at the joint
-        # self._compute_inertial_params()
-        # for i in range(self._num_links):
-        #     inertials = self._num_inertial_params[i]
-        #     mass  = inertials['mass']
-        #     com = inertials['com'] # CoM position w.r.t the joint frame of the link
-        #     h = mass * com # First moment of inertia
-            
-        #     # Inertia matrix 
-        #     rpy = inertials['rpy']
-        #     I_c = inertials['I_c']
-        #     R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
-        #     I_rotated = R @ I_c @ R.T
-        #     I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
-            
-        #     # Store the inerta parameters inside the phi_prior
-        #     j = 10*i
-        #     self._phi_prior[j] = mass
-        #     self._phi_prior[j+1: j+4] = h
-        #     self._phi_prior[j+4: j+7] = I_bar[0, :]
-        #     self._phi_prior[j+7: j+9] = I_bar[1, 1:]
-        #     self._phi_prior[j+9] = I_bar[2, 2]
-        # return self._phi_prior
-        
-        self.rpy = []
-        robot = URDF.from_xml_file(self._urdf_path)
-        for link in robot.links:
-            if link.name in self._link_names:
-                if link.inertial:
-                    rpy = np.array(link.inertial.origin.rpy)
-                    self.rpy.append(rpy)
-        
-        for i in range(1, self._rmodel.njoints):
-            j = 10*(i-1)
-            mass = self._rmodel.inertias[i].mass
-            
-            # CoM position w.r.t the joint frame of the link
-            com = self._rmodel.inertias[i].lever
+        self._compute_inertial_params()
+        for i in range(self._num_links):
+            inertials = self.inertial_params[i]
+            mass  = inertials['mass']
+            com = inertials['com'] # CoM position w.r.t the joint frame of the link
             h = mass * com # First moment of inertia
             
-            # Inertia matrix around the CoM
-            rpy = self.rpy[i-1]
-            I_c = self._rmodel.inertias[i].inertia 
+            # Inertia matrix 
+            rpy = inertials['rpy']
+            I_c = inertials['I_c']
             R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
             I_rotated = R @ I_c @ R.T
-            I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T) # Parllel axis theorem
+            I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
             
             # Store the inerta parameters inside the phi_prior
+            j = 10*i
             self._phi_prior[j] = mass
             self._phi_prior[j+1: j+4] = h
             self._phi_prior[j+4: j+7] = I_bar[0, :]
@@ -589,4 +557,34 @@ if __name__ == "__main__":
     # print("Calculated torqu", y@phi)
     # print("RNEA", tau_rnea)
     
-    
+    # def get_phi_prior(self):
+    #     self.rpy = []
+    #     robot = URDF.from_xml_file(self._urdf_path)
+    #     for link in robot.links:
+    #         if link.name in self._link_names:
+    #             if link.inertial:
+    #                 rpy = np.array(link.inertial.origin.rpy)
+    #                 self.rpy.append(rpy)
+        
+    #     for i in range(1, self._rmodel.njoints):
+    #         j = 10*(i-1)
+    #         mass = self._rmodel.inertias[i].mass
+            
+    #         # CoM position w.r.t the joint frame of the link
+    #         com = self._rmodel.inertias[i].lever
+    #         h = mass * com # First moment of inertia
+            
+    #         # Inertia matrix around the CoM
+    #         rpy = self.rpy[i-1]
+    #         I_c = self._rmodel.inertias[i].inertia 
+    #         R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
+    #         I_rotated = R @ I_c @ R.T
+    #         I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T) # Parllel axis theorem
+            
+    #         # Store the inerta parameters inside the phi_prior
+    #         self._phi_prior[j] = mass
+    #         self._phi_prior[j+1: j+4] = h
+    #         self._phi_prior[j+4: j+7] = I_bar[0, :]
+    #         self._phi_prior[j+7: j+9] = I_bar[1, 1:]
+    #         self._phi_prior[j+9] = I_bar[2, 2]
+    #     return self._phi_prior
