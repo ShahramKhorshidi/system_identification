@@ -265,25 +265,24 @@ class SystemIdentification(object):
                     self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
 
     def _compute_inertial_params(self):
-        # Compute the inertial parameters around the CoM
+        # Compute the inertial parameters for each link around its CoM 
         self.inertial_params = []
         robot = URDF.from_xml_file(self._urdf_path)
         for link in robot.links:
             if link.name in self._link_names:
-                if link.inertial:
-                    m = link.inertial.mass
-                    com = np.array(link.inertial.origin.xyz)
-                    rpy = np.array(link.inertial.origin.rpy)
-                    I_xx = link.inertial.inertia.ixx
-                    I_xy = link.inertial.inertia.ixy
-                    I_xz = link.inertial.inertia.ixz
-                    I_yy = link.inertial.inertia.iyy
-                    I_yz = link.inertial.inertia.iyz
-                    I_zz = link.inertial.inertia.izz
-                    I_c = np.array([[I_xx, I_xy, I_xz],
-                                    [I_xy, I_yy, I_yz],
-                                    [I_xz, I_yz, I_zz]])
-                    self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
+                m = link.inertial.mass
+                com = np.array(link.inertial.origin.xyz)
+                rpy = np.array(link.inertial.origin.rpy)
+                I_xx = link.inertial.inertia.ixx
+                I_xy = link.inertial.inertia.ixy
+                I_xz = link.inertial.inertia.ixz
+                I_yy = link.inertial.inertia.iyy
+                I_yz = link.inertial.inertia.iyz
+                I_zz = link.inertial.inertia.izz
+                I_c = np.array([[I_xx, I_xy, I_xz],
+                                [I_xy, I_yy, I_yz],
+                                [I_xz, I_yz, I_zz]])
+                self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
                     
     def get_robot_mass(self):
         return self._robot_mass
@@ -304,14 +303,15 @@ class SystemIdentification(object):
             com = inertials['com'] # CoM position w.r.t the joint frame of the link
             h = mass * com # First moment of inertia
             
-            # Inertia matrix 
-            rpy = inertials['rpy']
+            # Inertia matrix
             I_c = inertials['I_c']
+            # Order of rotation: roll, pitch, yaw (fixed axes)
+            rpy = inertials['rpy']
             R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
             I_rotated = R @ I_c @ R.T
             I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
             
-            # Store the inerta parameters inside the phi_prior
+            # Store the inerta parameters inside phi_prior vector
             j = 10*i
             self._phi_prior[j] = mass
             self._phi_prior[j+1: j+4] = h
