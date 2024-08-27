@@ -70,7 +70,7 @@ def plot(data):
     orig_signal = data
     # Butterworth filter parameters
     order = 5  # Filter order
-    cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+    cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
 
     # Design Butterworth filter
     b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
@@ -117,17 +117,19 @@ if __name__ == "__main__":
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/spot/"
     num_samples = 4000 # Number of samples for each trajectory
-    time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files/spot_squat.csv")
-    time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files/spot_pose.csv")
-    time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files/spot_walk_speed_slow_height_high_turn_around.csv")
-    time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files/spot_crawl_speed_slow_height_high_moved_both.csv")
+    time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_squat.csv")
+    time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_roll.csv")
+    time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_pitch.csv")
+    time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_yaw.csv")
+    time_4, q_4, dq_4, ddq_4, tau_4, cnt_4 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_high_speed_medium_forwardbackward.csv")
+    time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_high_speed_medium_sideways.csv")
 
     # Concatenate date of all the trajectories into one array
-    q = np.hstack((q_0, q_1, q_2, q_3))
-    dq = np.hstack((dq_0, dq_1, dq_2, dq_3))
-    ddq = np.hstack((ddq_0, ddq_1, ddq_2, ddq_3))
-    tau = np.hstack((tau_0, tau_1, tau_2, tau_3))
-    cnt = np.hstack((cnt_0, cnt_1, cnt_2, cnt_3))
+    q = np.hstack((q_0, q_1, q_2, q_3, q_4, q_5))
+    dq = np.hstack((dq_0, dq_1, dq_2, dq_3, dq_4, dq_5))
+    ddq = np.hstack((ddq_0, ddq_1, ddq_2, ddq_3, ddq_4, ddq_5))
+    tau = np.hstack((tau_0, tau_1, tau_2, tau_3, tau_4, tau_5))
+    cnt = np.hstack((cnt_0, cnt_1, cnt_2, cnt_3, cnt_4, cnt_5))
     
     # Save the combined trajectories into "spot" file
     np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')

@@ -453,7 +453,7 @@ class SystemIdentification(object):
         print("\n--------------------Torque Prediction Errors--------------------")
         print(f'RMSE for joint torques prediction using {param_name} parameters: total= {rmse_total}\nper_joints={joint_tau_rmse}')
     
-    def print_inertial_parametrs(self, prior, identified):
+    def print_inertial_params(self, prior, identified):
         total_m_prior = 0
         total_m_ident = 0
         self._cell_width = 13
