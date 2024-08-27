@@ -6,12 +6,13 @@ from src.solver import Solver
 from src.sys_identification import SystemIdentification
 
 
-def read_data(path, filter_type):
-    robot_q = np.loadtxt(path+"spot_robot_q.dat", delimiter='\t', dtype=np.float32)
-    robot_dq = np.loadtxt(path+"spot_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    robot_ddq = np.loadtxt(path+"spot_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    robot_tau = np.loadtxt(path+"spot_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_contact = np.loadtxt(path+"spot_robot_contact.dat", delimiter='\t', dtype=np.float32)
+def read_data(path, robot_name, filter_type):
+    robot_q = np.loadtxt(path+robot_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)
+    robot_dq = np.loadtxt(path+robot_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)
+    robot_ddq = np.loadtxt(path+robot_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)
+    robot_tau = np.loadtxt(path+robot_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    robot_contact = np.loadtxt(path+robot_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
+    
     if filter_type=="butterworth":
         # Butterworth filter parameters
         order = 5  # Filter order
@@ -55,14 +56,18 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
     return B_v, B_c
 
 def main():
-    path = os.getcwd()
-    filter_type = "butterworth" # "savitzky" or "butterworth"
-    q, dq, ddq, tau, cnt = read_data(path+"/data/spot/", filter_type)
+    # Read the data
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.dirname(dir_path) # Root directory of the workspace
+    robot_name = "spot"
+    filter_type = "butterworth" # savitzky or butterworth
+    q, dq, ddq, tau, cnt = read_data(path+"/data/", robot_name, filter_type)
     robot_urdf = path+"/files/spot_description/"+"spot.urdf"
     robot_config = path+"/files/spot_description/"+"spot_config.yaml"
     
     # Instantiate the identification problem
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
+    
     total_mass = sys_idnt.get_robot_mass()
     num_of_links = sys_idnt.get_num_links()
     

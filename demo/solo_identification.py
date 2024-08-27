@@ -55,7 +55,9 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
     return B_v, B_c
 
 def main():
-    path = os.getcwd()
+    # Read the data
+    dir_path = os.path.dirname(os.path.realpath(__file__))
+    path = os.path.dirname(dir_path) # Root directory of the workspace
     filter_type = "butterworth" # "savitzky" or "butterworth"
     q, dq, ddq, tau, cnt = read_data(path+"/data/solo/", filter_type)
     robot_urdf = path+"/files/solo_description/"+"solo12.urdf"
