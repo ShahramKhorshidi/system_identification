@@ -252,7 +252,9 @@ class SystemIdentification(object):
                         semi_axes = [radius, radius, radius]
                         center = visual.origin.xyz if visual.origin else [0, 0, 0]
                     elif isinstance(geometry, Mesh):
-                        mesh_path = os.getcwd()+"/files/"+geometry.filename[10:]
+                        dir_path = os.path.dirname(os.path.realpath(__file__))
+                        path = os.path.dirname(dir_path)
+                        mesh_path = path+"/files/"+geometry.filename[10:]
                         mesh = trimesh.load_mesh(mesh_path)
                         semi_axes = mesh.bounding_box.extents / 2
                         origin =  visual.origin.xyz
@@ -261,23 +263,60 @@ class SystemIdentification(object):
                         raise ValueError(f"Unsupported geometry type for link {link.name}")
                     self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
 
+    def _compute_inertial_params(self):
+        # Compute the inertial parameters for each link around its CoM 
+        self.inertial_params = []
+        robot = URDF.from_xml_file(self._urdf_path)
+        for link in robot.links:
+            if link.name in self._link_names:
+                m = link.inertial.mass
+                com = np.array(link.inertial.origin.xyz)
+                rpy = np.array(link.inertial.origin.rpy)
+                I_xx = link.inertial.inertia.ixx
+                I_xy = link.inertial.inertia.ixy
+                I_xz = link.inertial.inertia.ixz
+                I_yy = link.inertial.inertia.iyy
+                I_yz = link.inertial.inertia.iyz
+                I_zz = link.inertial.inertia.izz
+                I_c = np.array([[I_xx, I_xy, I_xz],
+                                [I_xy, I_yy, I_yz],
+                                [I_xz, I_yz, I_zz]])
+                self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
+                    
     def get_robot_mass(self):
         return self._robot_mass
     
     def get_num_links(self):
         return self._num_links
-
+    
     def get_bounding_ellipsoids(self):
         return self._bounding_ellipsoids
     
     def get_phi_prior(self):
-        for i in range(1, self._rmodel.njoints):
-            j = 10*(i-1)
-            self._phi_prior[j] = self._rmodel.inertias[i].mass
-            self._phi_prior[j+1: j+4] = self._rmodel.inertias[i].mass * self._rmodel.inertias[i].lever
-            self._phi_prior[j+4: j+7] = self._rmodel.inertias[i].inertia[0, :]
-            self._phi_prior[j+7: j+9] = self._rmodel.inertias[i].inertia[1, 1:]
-            self._phi_prior[j+9] = self._rmodel.inertias[i].inertia[2, 2]
+        # Returns the inertial parameters of all link concatenated in 1-D vector (size=10*num_link)
+        # The inertial parameters of each link is expressed w.r.t the body_frame at the joint
+        self._compute_inertial_params()
+        for i in range(self._num_links):
+            inertials = self.inertial_params[i]
+            mass  = inertials['mass']
+            com = inertials['com'] # CoM position w.r.t the joint frame of the link
+            h = mass * com # First moment of inertia
+            
+            # Inertia matrix
+            I_c = inertials['I_c']
+            # Order of rotation: roll, pitch, yaw (fixed axes)
+            rpy = inertials['rpy']
+            R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
+            I_rotated = R @ I_c @ R.T
+            I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
+            
+            # Store the inerta parameters inside phi_prior vector
+            j = 10*i
+            self._phi_prior[j] = mass
+            self._phi_prior[j+1: j+4] = h
+            self._phi_prior[j+4: j+7] = I_bar[0, :]
+            self._phi_prior[j+7: j+9] = I_bar[1, 1:]
+            self._phi_prior[j+9] = I_bar[2, 2]
         return self._phi_prior
     
     def get_physical_consistency(self, phi):

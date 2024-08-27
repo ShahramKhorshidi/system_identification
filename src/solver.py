@@ -93,7 +93,7 @@ class Solver():
         return com_constraint
     
     def _pullback_metric(self, phi):
-        # Returns the approximation of Riemannian distance metric, (M:10x10) as a numpy array
+        # Returns the approximation of Riemannian distance metric (M:10x10) as a numpy array
         M = np.zeros((self._num_inertial_params, self._num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
         P_inv = np.linalg.inv(P)
@@ -122,7 +122,7 @@ class Solver():
     
     def solve_fully_consistent(self, lambda_reg=1e-1, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
         """
-        Solve constrained least squares problem as LMI. Ensuring full physical consistency.
+        Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
         mass_sum = 0  # To accumulate the total mass
         regularization_term = 0
