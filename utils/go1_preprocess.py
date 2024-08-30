@@ -100,7 +100,7 @@ def finite_diff(dq):
     # Apply Butterworth filter to each state (row in the data array)
     dq_filt = signal.filtfilt(b, a, dq, axis=1)
     
-    dt = 0.001 # sec
+    dt = 0.02 # sec
     dq_prev = dq_filt[:, 0]
     for i in range(1, T):
         dq_curr = dq_filt[:, i]
@@ -144,8 +144,8 @@ def plot_2(data1, data2):
 
     for i in range(3):
         j = i
-        axs[i].plot(data1[j, :],label='Fin_diff')
-        axs[i].plot(data2[j, :], label='Sensor')
+        axs[i].plot(data1[j, :],label='Sensor')
+        axs[i].plot(data2[j, :], label='Fin_diff')
         axs[i].set_xlabel('Sample')
         axs[i].set_ylabel('')
         axs[0].legend()
@@ -158,10 +158,10 @@ if __name__ == "__main__":
     dir_path = os.path.dirname(os.path.realpath(__file__))
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/go1/"
-    downsampling = 3
-    q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files/wobbling_base.csv", k=downsampling)
-    q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files/walking.csv", k=downsampling)
-    q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files/running.csv", k=downsampling)
+    downsampling = 1
+    q_0, dq_0, ddq_0, tau_0, cnt_0, vel_fin = preprocessing(path, motion_name="csv_files_2/wobbling_base.csv", k=downsampling)
+    q_1, dq_1, ddq_1, tau_1, cnt_1, vel_fin = preprocessing(path, motion_name="csv_files_2/walking.csv", k=downsampling)
+    q_2, dq_2, ddq_2, tau_2, cnt_2, imu = preprocessing(path, motion_name="csv_files_2/running.csv", k=downsampling)
     
     q = np.hstack((q_0, q_1, q_2))
     dq = np.hstack((dq_0, dq_1, dq_2))

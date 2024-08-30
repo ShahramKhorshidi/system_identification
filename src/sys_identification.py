@@ -265,7 +265,9 @@ class SystemIdentification(object):
                     self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
 
     def _compute_inertial_params(self):
-        # Compute the inertial parameters for each link around its CoM 
+        # Compute the inertial parameters for each link from URDF
+        # The CoM is expressed in the body farme about the joint origin
+        # The inertia matrix is expressed about the CoM frame
         self.inertial_params = []
         robot = URDF.from_xml_file(self._urdf_path)
         for link in robot.links:
@@ -295,7 +297,7 @@ class SystemIdentification(object):
     
     def get_phi_prior(self):
         # Returns the inertial parameters of all link concatenated in 1-D vector (size=10*num_link)
-        # The inertial parameters of each link is expressed w.r.t the body_frame at the joint
+        # The inertial parameters of each link is expressed w.r.t the body_frame at the joint origin
         self._compute_inertial_params()
         for i in range(self._num_links):
             inertials = self.inertial_params[i]

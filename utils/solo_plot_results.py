@@ -45,7 +45,7 @@ if __name__ == "__main__":
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # Show Results
-    sys_idnt.print_inertial_parametrs(phi_prior, phi_proj_lmi)
+    sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_prior, "Prior")
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_llsq, "Full_llsq")
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_lmi, "Full_lmi")
