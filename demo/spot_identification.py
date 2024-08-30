@@ -89,7 +89,7 @@ def main():
     # Solve the LMI and show the results
     solver_proj = Solver(Y_proj, tau_proj, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v_proj, B_c=B_c_proj)
     phi_identified = solver_proj.solve_fully_consistent()
-    sys_idnt.print_inertial_parametrs(phi_prior, phi_identified)
+    sys_idnt.print_inertial_params(phi_prior, phi_identified)
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_prior, "Prior")
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified")
 
