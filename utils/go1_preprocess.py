@@ -159,9 +159,9 @@ if __name__ == "__main__":
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/go1/"
     downsampling = 1
-    q_0, dq_0, ddq_0, tau_0, cnt_0, vel_fin = preprocessing(path, motion_name="csv_files_2/wobbling_base.csv", k=downsampling)
-    q_1, dq_1, ddq_1, tau_1, cnt_1, vel_fin = preprocessing(path, motion_name="csv_files_2/walking.csv", k=downsampling)
-    q_2, dq_2, ddq_2, tau_2, cnt_2, imu = preprocessing(path, motion_name="csv_files_2/running.csv", k=downsampling)
+    q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(path, motion_name="csv_files_2/wobbling_base.csv", k=downsampling)
+    q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(path, motion_name="csv_files_2/walking.csv", k=downsampling)
+    q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(path, motion_name="csv_files_2/running.csv", k=downsampling)
     
     q = np.hstack((q_0, q_1, q_2))
     dq = np.hstack((dq_0, dq_1, dq_2))

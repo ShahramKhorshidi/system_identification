@@ -2,14 +2,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 class PlotClass():
-    def __init__(self, phi_prior, phi_ident):
+    def __init__(self, phi_prior):
         self._phi_prior = phi_prior
-        self._phi_ident = phi_ident
     
-    def plot_mass(self, title):
+    def plot_mass(self, phi_ident, title):
         # Extract the mass values (every 10th element starting from the 0th element)
         masses_prior = self._phi_prior[::10]
-        masses_calculated = self._phi_ident[::10]
+        masses_calculated = phi_ident[::10]
 
         # Create an array representing the link indices
         link_indices = np.arange(13)  # Links are numbered 1 to 13
@@ -33,7 +32,7 @@ class PlotClass():
         ax.legend()
         plt.tight_layout()
 
-    def plot_h(self, title):
+    def plot_h(self, phi_ident, title):
         num_links = 13
         num_params_per_link = 10
         
@@ -52,9 +51,9 @@ class PlotClass():
             h_y_actual.append(self._phi_prior[idx + 2])
             h_z_actual.append(self._phi_prior[idx + 3])
             
-            h_x_predicted.append(self._phi_ident[idx + 1])
-            h_y_predicted.append(self._phi_ident[idx + 2])
-            h_z_predicted.append(self._phi_ident[idx + 3])
+            h_x_predicted.append(phi_ident[idx + 1])
+            h_y_predicted.append(phi_ident[idx + 2])
+            h_z_predicted.append(phi_ident[idx + 3])
 
         # Plotting
         index = np.arange(num_links)
@@ -89,7 +88,7 @@ class PlotClass():
         axs[2].set_xlabel('Link Number')
         plt.tight_layout()
 
-    def plot_inertia(self, title):
+    def plot_inertia(self, phi_ident, title):
         num_links = 13
         num_params_per_link = 10
         
@@ -117,12 +116,12 @@ class PlotClass():
             I_yz_actual.append(self._phi_prior[idx + 8])
             I_zz_actual.append(self._phi_prior[idx + 9])
                     
-            I_xx_predicted.append(self._phi_ident[idx + 4])
-            I_xy_predicted.append(self._phi_ident[idx + 5])
-            I_xz_predicted.append(self._phi_ident[idx + 6])
-            I_yy_predicted.append(self._phi_ident[idx + 7])
-            I_yz_predicted.append(self._phi_ident[idx + 8])
-            I_zz_predicted.append(self._phi_ident[idx + 9])
+            I_xx_predicted.append(phi_ident[idx + 4])
+            I_xy_predicted.append(phi_ident[idx + 5])
+            I_xz_predicted.append(phi_ident[idx + 6])
+            I_yy_predicted.append(phi_ident[idx + 7])
+            I_yz_predicted.append(phi_ident[idx + 8])
+            I_zz_predicted.append(phi_ident[idx + 9])
             
         # Plotting
         index = np.arange(num_links)

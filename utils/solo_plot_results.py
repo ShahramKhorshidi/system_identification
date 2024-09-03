@@ -53,7 +53,7 @@ if __name__ == "__main__":
     sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, "Proj_lmi")
     
     # Plot physical consistency
-    plotter = PlotClass(phi_prior ,phi_proj_lmi)
+    plotter = PlotClass(phi_prior)
     I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
     plotter.plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Phi Prior")
     
@@ -64,14 +64,14 @@ if __name__ == "__main__":
     plotter.plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Projected LMI")
     
     # Plots
-    plotter.plot_mass("Full Sensing LMI_Mass")
-    plotter.plot_mass("Projected LMI_Mass")
+    plotter.plot_mass(phi_full_lmi, "Full Sensing LMI_Mass")
+    plotter.plot_mass(phi_proj_lmi, "Projected LMI_Mass")
     
-    plotter.plot_h("Full Sensing LMI_First Moment")
-    plotter.plot_h("Projected LMI_First moment")
+    plotter.plot_h(phi_full_lmi, "Full Sensing LMI_First Moment")
+    plotter.plot_h(phi_proj_lmi, "Projected LMI_First moment")
     
-    plotter.plot_inertia("Full Sensing LMI_Second Moment")
-    plotter.plot_inertia("Projected LMI_Second Moment")
+    plotter.plot_inertia(phi_full_lmi, "Full Sensing LMI_Second Moment")
+    plotter.plot_inertia(phi_proj_lmi, "Projected LMI_Second Moment")
 
     plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_full_lmi, sys_idnt, "Full Sensing")
     plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
