@@ -90,8 +90,10 @@ def main():
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi = solver_proj.solve_fully_consistent()
+    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent()
     np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
+    np.savetxt(path+"/data/spot/"+motion_name+"_b_v.dat", b_v, delimiter='\t')
+    np.savetxt(path+"/data/spot/"+motion_name+"_b_c.dat", b_c, delimiter='\t')
 
 if __name__ == "__main__":
     main()

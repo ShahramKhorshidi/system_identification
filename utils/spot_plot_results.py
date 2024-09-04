@@ -7,11 +7,13 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, data_noisy):
-    robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)
-    robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
+    start = 0
+    end = 4000
+    robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)[:, start:end]
     if data_noisy:
         # Butterworth filter parameters
         order = 5  # Filter order
@@ -28,13 +30,15 @@ if __name__ == "__main__":
     dir_path = os.path.dirname(os.path.realpath(__file__))
     path = os.path.dirname(dir_path) # Root directory of the workspace
     
-    motion_name = "spot_validate"
+    motion_name = "spot"
     q, dq, ddq, torque, cnt = read_data(path+"/data/spot/", motion_name, True)
     
     phi_prior = np.loadtxt(path+"/data/spot/spot_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_proj_llsq = np.loadtxt(path+"/data/spot/spot_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_proj_lmi = np.loadtxt(path+"/data/spot/spot_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
-    
+    b_v = np.loadtxt(path+"/data/spot/spot_b_v.dat", delimiter='\t', dtype=np.float32)
+    b_c = np.loadtxt(path+"/data/spot/spot_b_c.dat", delimiter='\t', dtype=np.float32)
+
     # Instantiate the identification
     robot_urdf = path+"/files/spot_description/spot.urdf"
     robot_config = path+"/files/spot_description/spot_config.yaml"
@@ -42,9 +46,9 @@ if __name__ == "__main__":
     
     # Show Results
     sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_prior, "Prior")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, "Proj_llsq")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, "Proj_lmi")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, cnt, torque, b_v, b_c, phi_prior, "Prior")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, cnt, torque, b_v, b_c, phi_proj_llsq, "Proj_llsq")
+    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, cnt, torque, b_v, b_c, phi_proj_lmi, "Proj_lmi")
     
     # Plot physical consistency
     plotter = PlotClass(phi_prior)
@@ -67,8 +71,8 @@ if __name__ == "__main__":
     plotter.plot_inertia(phi_proj_llsq, "Projected llsq_Second Moment")
     plotter.plot_inertia(phi_proj_lmi, "Projected LMI_Second Moment")
 
-    plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_prior, sys_idnt, "Phi prior")
-    plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt, "Projected LLSQ")
-    plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
+    plotter.plot_proj_torques(b_v, b_c, q, dq, ddq, torque, cnt, phi_prior, sys_idnt, "Phi prior")
+    plotter.plot_proj_torques(b_v, b_c, q, dq, ddq, torque, cnt, phi_proj_llsq, sys_idnt, "Projected LLSQ")
+    plotter.plot_proj_torques(b_v, b_c, q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
     
     plt.show()

@@ -187,15 +187,14 @@ class PlotClass():
         axs2[2].legend()
         plt.tight_layout()
 
-    def plot_proj_torques(self, q, dq, ddq, torque, cnt, phi, sys_idnt, title):
+    def plot_proj_torques(self, b_v, b_c, q, dq, ddq, torque, cnt, phi, sys_idnt, title):
         predicted = []
         measured = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-            pred = y@phi
+            pred, meas = sys_idnt.calculate_predicted_torque(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi)
             predicted.append(pred[6:])
-            measured.append(tau[6:])
+            measured.append(meas[6:])
         
         predicted = np.vstack(predicted)
         measured = np.vstack(measured)
@@ -210,7 +209,7 @@ class PlotClass():
         for j in range(num_joints):
             ax = axes[j // cols, j % cols]
             
-            ax.plot(measured[:, j], label='Measured', color='blue')
+            ax.plot(measured[:, j], label='Meaured', color='green', linestyle='--')
             ax.plot(predicted[:, j], label='Identified', color='red', linestyle='--')
             
             if j == 0:

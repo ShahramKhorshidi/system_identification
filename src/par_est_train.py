@@ -53,8 +53,6 @@ if __name__ == "__main__":
     # U_T = 2*(U_T - U_T_MIN)/(U_T_MAX - U_T_MIN) - 1
 
     
-    
-    
     # scale the data to be between -1 and 1 for each column
     print(torch.isnan(X_T).any())
     print(torch.isnan(U_T).any())

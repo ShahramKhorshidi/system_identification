@@ -116,14 +116,14 @@ if __name__ == "__main__":
     dir_path = os.path.dirname(os.path.realpath(__file__))
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/spot/"
-    num_samples = 3000 # Number of samples for each trajectory
+    num_samples = 1000 # Number of samples for each trajectory
     time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_squat.csv")
     time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_roll.csv")
     time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_pitch.csv")
     time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_yaw.csv")
     time_4, q_4, dq_4, ddq_4, tau_4, cnt_4 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_forwardbackward.csv")
-    time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_sideways.csv")
-    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_fast_forwardbackward.csv")
+    time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_medium_sideways.csv")
+    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_forwardbackward.csv")
     
     # Concatenate data from all the trajectories into one array
     q = np.hstack((    q_0,   q_1,   q_2,   q_3,   q_4,   q_5))

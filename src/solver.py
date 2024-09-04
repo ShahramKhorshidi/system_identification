@@ -120,7 +120,7 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
+    def solve_fully_consistent(self, lambda_reg=1e-4, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
@@ -137,7 +137,7 @@ class Solver():
             ellipsoid_params_idx = self._bounding_ellipsoids[idx]
             
             # Mass constraint
-            self._constraints.append(phi_idx[0] >= 0)
+            # self._constraints.append(phi_idx[0] >= 0)
             mass_sum += phi_idx[0]
             
             # Compute pseudo inertia matrix (J:4x4) and add the constraint
@@ -214,7 +214,10 @@ class Solver():
             print("Number of iterations:", solver_info.num_iters)
             print("########################################")
             # Return the value of the decision variables
-            return self._phi.value
+            if self._identify_fric:
+                return self._phi.value, self._b_v.value, self._b_c.value
+            else:
+                return self._phi.value
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")

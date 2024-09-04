@@ -426,6 +426,18 @@ class SystemIdentification(object):
         B_v = P @ self._S.T @ np.diag(dq[self._base_dof:])
         B_c = P @ self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
         return B_v, B_c
+    
+    def calculate_predicted_torque(self, q, dq, ddq, cnt,tau, b_v, b_c, phi):
+        # Returns the predicted torque from inertial parameters: (Y @ phi)
+        self._update_fk(q, dq, ddq)
+        P = self._compute_null_space_proj(cnt)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        tau_pred = Y @ phi - self._S.T @ (np.diag(b_v) @ dq[self._base_dof:] + np.diag(b_c) @ np.sign(dq[self._base_dof:]))
+        torque = ( pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
+                  - self._S.T @ np.diag(b_v) @ dq[self._base_dof:]
+                  - self._S.T @ np.diag(b_c) @ np.sign(dq[self._base_dof:]) )
+        
+        return P@tau_pred, P@self._S.T@tau
         
     def get_regressor_pin(self, q, dq, ddq, cnt, force, torque):
         self._update_fk(q, dq, ddq)
@@ -437,15 +449,15 @@ class SystemIdentification(object):
         return Y, tau, F
     
     # Metods to print and show the results 
-    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name):
+    def print_tau_prediction_rmse(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, param_name):
         # Shows RMSE of predicted torques based on phi parameters
         tau_pred = []
         tau_meas = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            y, tau = self.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-            tau_pred.append((y@phi)[6:])
-            tau_meas.append(tau[6:])
+            pred, meas = self.calculate_predicted_torque(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi)
+            tau_pred.append(pred[6:])
+            tau_meas.append(meas[6:])
         tau_pred = np.vstack(tau_pred)
         tau_meas = np.vstack(tau_meas)
         
