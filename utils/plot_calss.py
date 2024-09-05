@@ -187,7 +187,7 @@ class PlotClass():
         axs2[2].legend()
         plt.tight_layout()
 
-    def plot_proj_torques(self, b_v, b_c, q, dq, ddq, torque, cnt, phi, sys_idnt, title):
+    def plot_proj_torques(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, sys_idnt, title):
         predicted = []
         measured = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
@@ -198,6 +198,12 @@ class PlotClass():
         
         predicted = np.vstack(predicted)
         measured = np.vstack(measured)
+        
+        error = measured - predicted
+        rmse_total = np.sqrt(np.mean(np.square(np.linalg.norm(error, axis=1)))) # overall RMSE
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
+        print(f'\n-------------------- {title} parameters --------------------')
+        print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
         
         num_joints = measured.shape[1]
         rows = 4
@@ -211,6 +217,88 @@ class PlotClass():
             
             ax.plot(measured[:, j], label='Meaured', color='green', linestyle='--')
             ax.plot(predicted[:, j], label='Identified', color='red', linestyle='--')
+            
+            if j == 0:
+                ax.set_title("Hip Abduction/Adduction")
+            if j == 1:
+                ax.set_title("Hip Flexion/Extension")
+            if j == 2:
+                ax.set_title("Knee Flexion/Extension")
+            ax.set_ylabel('Torque (Nm)')
+            if j>=9:
+                ax.set_xlabel('Sample')
+            ax.legend()
+        axes[0][0].set_ylabel('FL - Torque (Nm)')
+        axes[1][0].set_ylabel('FR - Torque (Nm)')
+        axes[2][0].set_ylabel('HL - Torque (Nm)')
+        axes[3][0].set_ylabel('HR - Torque (Nm)')
+        plt.tight_layout()
+    
+    def plot_solo_torques(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, sys_idnt, title, force):
+        predicted = []
+        measured = []
+        # For each data ponit we calculate the rgeressor and torque vector, and stack them
+        for i in range(q.shape[1]):
+            pred, meas = sys_idnt.calculate_predicted_torque_solo(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi, force[:, i])
+            predicted.append(pred[6:])
+            measured.append(meas[6:])
+        
+        predicted = np.vstack(predicted)
+        measured = np.vstack(measured)
+        
+        error = measured - predicted
+        rmse_total = np.sqrt(np.mean(np.square(np.linalg.norm(error, axis=1)))) # overall RMSE
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
+        print(f'\n-------------------- {title} parameters --------------------')
+        print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
+        
+        num_joints = measured.shape[1]
+        rows = 4
+        cols = 3
+        
+        fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 15))
+        plt.get_current_fig_manager().set_window_title(title)
+        
+        for j in range(num_joints):
+            ax = axes[j // cols, j % cols]
+            
+            ax.plot(measured[:, j], label='Meaured', color='green', linestyle='--')
+            ax.plot(predicted[:, j], label='Identified', color='red', linestyle='--')
+            
+            if j == 0:
+                ax.set_title("Hip Abduction/Adduction")
+            if j == 1:
+                ax.set_title("Hip Flexion/Extension")
+            if j == 2:
+                ax.set_title("Knee Flexion/Extension")
+            ax.set_ylabel('Torque (Nm)')
+            if j>=9:
+                ax.set_xlabel('Sample')
+            ax.legend()
+        axes[0][0].set_ylabel('FL - Torque (Nm)')
+        axes[1][0].set_ylabel('FR - Torque (Nm)')
+        axes[2][0].set_ylabel('HL - Torque (Nm)')
+        axes[3][0].set_ylabel('HR - Torque (Nm)')
+        plt.tight_layout()
+
+    def plot_nn_torques(self, tau, tau_nn, title):
+        error = tau - tau_nn
+        rmse_total = np.sqrt(np.mean(np.square(np.linalg.norm(error, axis=1)))) # overall RMSE
+        joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
+        print(f'\n-------------------- {title} parameters --------------------')
+        print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
+        num_joints = tau.shape[1]
+        rows = 4
+        cols = 3
+        
+        fig, axes = plt.subplots(nrows=rows, ncols=cols, figsize=(20, 15))
+        plt.get_current_fig_manager().set_window_title(title)
+        
+        for j in range(num_joints):
+            ax = axes[j // cols, j % cols]
+            
+            ax.plot(tau[:, j], label='Meaured', color='green', linestyle='--')
+            ax.plot(tau_nn[:, j], label='Identified', color='red', linestyle='--')
             
             if j == 0:
                 ax.set_title("Hip Abduction/Adduction")

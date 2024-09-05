@@ -123,7 +123,7 @@ if __name__ == "__main__":
     time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_yaw.csv")
     time_4, q_4, dq_4, ddq_4, tau_4, cnt_4 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_forwardbackward.csv")
     time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_medium_sideways.csv")
-    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_forwardbackward.csv")
+    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_fast_forwardbackward.csv")
     
     # Concatenate data from all the trajectories into one array
     q = np.hstack((    q_0,   q_1,   q_2,   q_3,   q_4,   q_5))

@@ -29,16 +29,23 @@ if __name__ == "__main__":
     dir_path = os.path.dirname(os.path.realpath(__file__))
     path = os.path.dirname(dir_path) # Root directory of the workspace
     
-    motion_name = "noisy"
+    # Load the trajectory and predicted tau_nn from the motion name
+    motion_name = "nn_eval"
     q, dq, ddq, torque, force, cnt = read_data(path+"/data/solo/", motion_name, True)
+    tau_ped_nn = np.loadtxt(path+"/data/solo/tau_pred_nn.dat", delimiter='\t', dtype=np.float32)
     
+    # Load the identified model parameters optimized over noisy data
     identified_params = "noisy"
     phi_prior = np.loadtxt(path+"/data/solo/solo_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_full_llsq = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_full_lmi = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)
     phi_proj_llsq = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_proj_lmi = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_proj_lmi.dat", delimiter='\t', dtype=np.float32)
-    
+    b_v = np.loadtxt(path+"/data/solo/"+f"{identified_params}_b_v.dat", delimiter='\t', dtype=np.float32)
+    b_c = np.loadtxt(path+"/data/solo/"+f"{identified_params}_b_c.dat", delimiter='\t', dtype=np.float32)
+    b_v_proj = np.loadtxt(path+"/data/solo/"+f"{identified_params}_b_v_proj.dat", delimiter='\t', dtype=np.float32)
+    b_c_proj = np.loadtxt(path+"/data/solo/"+f"{identified_params}_b_c_proj.dat", delimiter='\t', dtype=np.float32)
+
     # Instantiate the identification problem
     robot_urdf = path+"/files/solo_description/solo12.urdf"
     robot_config = path+"/files/solo_description/solo12_config.yaml"
@@ -46,34 +53,31 @@ if __name__ == "__main__":
     
     # Show Results
     sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_prior, "Prior")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_llsq, "Full_llsq")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_full_lmi, "Full_lmi")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_llsq, "Proj_llsq")
-    sys_idnt.print_tau_prediction_rmse(q, dq, ddq, torque, cnt, phi_proj_lmi, "Proj_lmi")
     
     # Plot physical consistency
     plotter = PlotClass(phi_prior)
-    I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
-    plotter.plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Phi Prior")
+    # I_bar_prior, I_prior, J_prior, C_prior, trace_prior = sys_idnt.get_physical_consistency(phi_prior)
+    # plotter.plot_eigval(I_bar_prior, I_prior, J_prior, C_prior, trace_prior, "Phi Prior")
     
-    I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_full_lmi)
-    plotter.plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Full Sensing LMI")
+    # I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq = sys_idnt.get_physical_consistency(phi_full_lmi)
+    # plotter.plot_eigval(I_bar_llsq, I_llsq, J_llsq, C_llsq, trace_llsq, "Full Sensing LMI")
 
-    I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
-    plotter.plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Projected LMI")
+    # I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi = sys_idnt.get_physical_consistency(phi_proj_lmi)
+    # plotter.plot_eigval(I_bar_lmi, I_lmi, J_lmi, C_lmi, trace_lmi, "Projected LMI")
     
-    # Plots
-    plotter.plot_mass(phi_full_lmi, "Full Sensing LMI_Mass")
-    plotter.plot_mass(phi_proj_lmi, "Projected LMI_Mass")
+    # # Plots
+    # plotter.plot_mass(phi_full_lmi, "Full Sensing LMI_Mass")
+    # plotter.plot_mass(phi_proj_lmi, "Projected LMI_Mass")
     
-    plotter.plot_h(phi_full_lmi, "Full Sensing LMI_First Moment")
-    plotter.plot_h(phi_proj_lmi, "Projected LMI_First moment")
+    # plotter.plot_h(phi_full_lmi, "Full Sensing LMI_First Moment")
+    # plotter.plot_h(phi_proj_lmi, "Projected LMI_First moment")
     
-    plotter.plot_inertia(phi_full_lmi, "Full Sensing LMI_Second Moment")
-    plotter.plot_inertia(phi_proj_lmi, "Projected LMI_Second Moment")
+    # plotter.plot_inertia(phi_full_lmi, "Full Sensing LMI_Second Moment")
+    # plotter.plot_inertia(phi_proj_lmi, "Projected LMI_Second Moment")
 
-    plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_full_lmi, sys_idnt, "Full Sensing")
-    plotter.plot_proj_torques(q, dq, ddq, torque, cnt, phi_proj_lmi, sys_idnt, "Projected LMI")
+    # plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_prior, sys_idnt, "Phi Prior", force)
+    # plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_full_lmi, sys_idnt, "Full Sensing", force)
+    plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v_proj, b_c_proj, phi_proj_lmi, sys_idnt, "Projected LMI", force)
+    plotter.plot_nn_torques(torque.T, tau_ped_nn, "NN")
     
     plt.show()

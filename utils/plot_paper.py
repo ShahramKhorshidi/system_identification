@@ -60,7 +60,7 @@ if __name__ == "__main__":
     path = os.path.dirname(dir_path) # Root directory of the workspace
     
     motion_name = "spot_validate"
-    end = 1000
+    end = 500
     q, dq, ddq, tau, cnt = read_data(path+"/data/spot/", motion_name, end, True)
     phi_prior = np.loadtxt(path+"/data/spot/spot_phi_prior.dat", delimiter='\t', dtype=np.float32)[:end]
     phi_proj_llsq = np.loadtxt(path+"/data/spot/spot_phi_proj_llsq.dat", delimiter='\t', dtype=np.float32)[:end]
@@ -90,7 +90,7 @@ if __name__ == "__main__":
 
     t = np.arange(simulation_time) * rate / 100
     
-    line_thick = 0.9
+    line_thick = 1.5
     
     # Indecis for motors in one leg
     i, j, k = 3, 4, 5
@@ -99,7 +99,7 @@ if __name__ == "__main__":
     # axs[0,0].plot(t, q[7+i, :], "k", linewidth=line_thick)
     axs[0,0].plot(t, tau_meas[:, i], "b", label="Meas", linewidth=line_thick)
     axs[0,0].plot(t, tau_prior[:, i], "r", label="Prior", linewidth=line_thick)
-    # axs[0,0].plot(t, tau_pred[:, i], "y", label="LMI", linewidth=line_thick)
+    axs[0,0].plot(t, tau_pred[:, i], "y", label="LMI", linewidth=line_thick)
     axs[0,0].set(ylabel='Torque (Nm)')
     axs[0,0].get_yaxis().set_label_coords(-0.15,0.5)
     axs[0,0].set_xlabel('Hip Ab/Ad\n')
@@ -111,7 +111,7 @@ if __name__ == "__main__":
     # ----------------------- Hip Flexion/Extension ----------------------- #
     axs[0,1].plot(t, tau_meas[:, j], "b", linewidth=line_thick)
     axs[0,1].plot(t, tau_prior[:, j], "r", linewidth=line_thick)
-    # axs[0,1].plot(t, tau_pred[:, j], "y", linewidth=line_thick)
+    axs[0,1].plot(t, tau_pred[:, j], "y", linewidth=line_thick)
     axs[0,1].set_xlabel('Hip Fl/Ex\n')
     axs[0,1].get_xaxis().set_label_coords(0.5,0.9)  
     axs[0,1].xaxis.set_label_position('top')
@@ -121,7 +121,7 @@ if __name__ == "__main__":
     # ----------------------- Knee Flexion/Extension ----------------------- #
     axs[0,2].plot(t, tau_meas[:, k], "b", linewidth=line_thick)
     axs[0,2].plot(t, tau_prior[:, k], "r", linewidth=line_thick)
-    # axs[0,2].plot(t, tau_pred[:, k], "y", linewidth=line_thick)
+    axs[0,2].plot(t, tau_pred[:, k], "y", linewidth=line_thick)
     axs[0,2].set_xlabel('Knee Fl/Ex\n')
     axs[0,2].get_xaxis().set_label_coords(0.5,0.9)    
     axs[0,2].xaxis.set_label_position('top')
