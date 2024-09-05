@@ -408,6 +408,13 @@ class SystemIdentification(object):
         F = self._S.T @ tau + J_c.T @ lamda
         return Y, F 
     
+    def get_friction_regressors(self, q, dq, ddq, cnt):
+        # Returns the viscous and Coulumb friction matrices
+        self._update_fk(q, dq, ddq)
+        B_v = self._S.T @ np.diag(dq[self._base_dof:])
+        B_c = self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
+        return B_v, B_c
+    
     def get_proj_regressor_torque(self, q, dq, ddq, tau, cnt):
         # Returns regressor matrix and torque vector projected into 
         # the null-space of contatc Jacobian: (P @ Y) @ phi = (P @ tau)
@@ -427,8 +434,8 @@ class SystemIdentification(object):
         B_c = P @ self._S.T @ np.diag(np.sign(dq[self._base_dof:]))
         return B_v, B_c
     
-    def calculate_predicted_torque(self, q, dq, ddq, cnt,tau, b_v, b_c, phi):
-        # Returns the predicted torque from inertial parameters: (Y @ phi)
+    def calculate_predicted_torque(self, q, dq, ddq, cnt, tau, b_v, b_c, phi):
+        # Returns the predicted torque from inertial parameters projected into the null-space: (P @ Y @ phi)
         self._update_fk(q, dq, ddq)
         P = self._compute_null_space_proj(cnt)
         Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
@@ -436,9 +443,19 @@ class SystemIdentification(object):
         torque = ( pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
                   - self._S.T @ np.diag(b_v) @ dq[self._base_dof:]
                   - self._S.T @ np.diag(b_c) @ np.sign(dq[self._base_dof:]) )
-        
         return P@tau_pred, P@self._S.T@tau
-        
+    
+    def calculate_predicted_torque_solo(self, q, dq, ddq, cnt, tau, b_v, b_c, phi, force):
+        # Returns the predicted torque from inertial parameters: (Y @ phi)
+        self._update_fk(q, dq, ddq)
+        P = self._compute_null_space_proj(cnt)
+        Y = pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        tau_pred = Y @ phi - self._S.T @ (np.diag(b_v) @ dq[self._base_dof:] + np.diag(b_c) @ np.sign(dq[self._base_dof:]))
+        J_c = self._compute_J_c(cnt)
+        lamda = self._compute_lambda(force, cnt)
+        F = J_c.T @ lamda
+        return tau_pred-F, self._S.T @tau
+    
     def get_regressor_pin(self, q, dq, ddq, cnt, force, torque):
         self._update_fk(q, dq, ddq)
         tau = pin.rnea(self._rmodel, self._rdata, q, dq, ddq)
@@ -461,11 +478,11 @@ class SystemIdentification(object):
         tau_pred = np.vstack(tau_pred)
         tau_meas = np.vstack(tau_meas)
         
-        error = tau_pred - tau_meas
-        rmse_total = np.mean(np.square(np.linalg.norm(error, axis=1))) # overall RMSE
+        error = tau_meas - tau_pred
+        rmse_total = np.sqrt(np.mean(np.square(np.linalg.norm(error, axis=1)))) # overall RMSE
         joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
-        print("\n--------------------Torque Prediction Errors--------------------")
-        print(f'RMSE for joint torques prediction using {param_name} parameters: total= {rmse_total}\nper_joints={joint_tau_rmse}')
+        print(f'\n-------------------- {param_name} parameters --------------------')
+        print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
     
     def print_inertial_params(self, prior, identified):
         total_m_prior = 0
