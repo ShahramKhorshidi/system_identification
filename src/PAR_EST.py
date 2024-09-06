@@ -12,7 +12,7 @@ dirPath = os.path.dirname(os.path.realpath(__file__))
 parentDirPath = os.path.dirname(dirPath)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-HID_DIM = 1000
+HID_DIM = 2048
 LR = 1e-6
 
 
@@ -34,11 +34,15 @@ class TORQUE_ESTIMATOR(nn.Module):
         
         self.encoder_sub = nn.Sequential(
                     nn.Linear(input_dim, HID_DIM),
-                    nn.LeakyReLU(),
+                    nn.BatchNorm1d(HID_DIM),
+                    nn.Tanh(),
                     nn.Linear(HID_DIM, HID_DIM),
-                    nn.LeakyReLU(),
-                    nn.Linear(HID_DIM, output_dim),
-                    nn.LeakyReLU())
+                    nn.BatchNorm1d(HID_DIM),
+                    nn.Tanh(),
+                    nn.Linear(HID_DIM, HID_DIM),
+                    #nn.BatchNorm1d(HID_DIM),
+                    nn.Tanh(),
+                    nn.Linear(HID_DIM, output_dim))
         
         self.mu = nn.Linear(HID_DIM, output_dim)
         self.log_std = nn.Linear(HID_DIM, output_dim)
@@ -47,19 +51,19 @@ class TORQUE_ESTIMATOR(nn.Module):
       
     def forward(self, state,training):
         # Non Gaussian
-        # out = self.encoder_sub(state)
-        # return out
+        out = self.encoder_sub(state)
+        return out
 
         # Gaussian
-        out = self.encoder(state)
-        mu, log_std = self.mu(out), self.log_std(out)
-        log_std = torch.clip(log_std, -2, 15)
-        std = torch.exp(log_std)
-        if training:
-            torq = torch.normal(mu, std)
-        else:
-            torq = mu
-        return torq
+        # out = self.encoder(state)
+        # mu, log_std = self.mu(out), self.log_std(out)
+        # log_std = torch.clamp(log_std, -2, 15)
+        # std = torch.exp(log_std)
+        # if training:
+        #     torq = torch.normal(mu, std)
+        # else:
+        #     torq = mu
+        # return torq
 
 
 class ESTIMATOR(nn.Module):
@@ -79,6 +83,7 @@ class ESTIMATOR(nn.Module):
         pred_torque = self.est(input_data, True)
         loss = F.mse_loss(pred_torque, target)
         self.est_optimizer.zero_grad(set_to_none=True)
+        # torch.nn.utils.clip_grad_norm_(self.est.parameters(), 0.5)
         loss.backward()
         # torch.nn.utils.clip_grad_norm_(self.est.parameters(), CG) 
         self.est_optimizer.step()
