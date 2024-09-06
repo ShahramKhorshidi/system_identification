@@ -7,12 +7,14 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, filter_type):
-    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)
-    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_ee_force = np.loadtxt(path+motion_name+"_robot_ee_force.dat", delimiter='\t', dtype=np.float32)
-    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)
+    start = 0
+    end = 6000
+    robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_tau = np.loadtxt(path+motion_name+"_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_ee_force = np.loadtxt(path+motion_name+"_robot_ee_force.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_contact = np.loadtxt(path+motion_name+"_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     if filter_type=="butterworth":
         # Butterworth filter parameters
         order = 5  # Filter order
@@ -86,7 +88,7 @@ def get_full_friction_regressors(q, dq, ddq, cnt, sys_idnt):
 def main():
     dir_path = os.path.dirname(os.path.realpath(__file__))
     path = os.path.dirname(dir_path) # Root directory of the workspace
-    motion_name = "noisy"
+    motion_name = "train"
     filter_type = "butterworth" # "savitzky" "butterworth"
     q, dq, ddq, torque, force, cnt = read_data(path+"/data/solo/", motion_name, filter_type)
     robot_urdf = path+"/files/solo_description/"+"solo12.urdf"
@@ -99,9 +101,9 @@ def main():
     num_of_links = sys_idnt.get_num_links()
     
     # Prior values for the inertial parameters
-    # phi_prior = sys_idnt.get_phi_prior()
-    # np.savetxt(path+"/data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
-    phi_prior = np.loadtxt(path+"/data/solo/solo_phi_prior.dat", delimiter='\t', dtype=np.float32)
+    phi_prior = sys_idnt.get_phi_prior()
+    np.savetxt(path+"/data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
+    phi_prior = np.loadtxt(path+"/data/solo/solo_phi_prior_I_c.dat", delimiter='\t', dtype=np.float32)
     
     # Bounding ellipsoids
     bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()

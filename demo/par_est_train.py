@@ -67,10 +67,11 @@ if __name__ == "__main__":
     
     print(torch.isnan(X_T).any())
     print(torch.isnan(U_T).any())
-    batch_size = 32
+    batch_size = 256
     # pretrain_steps = 5000
     
-    save_path = os.path.join(parentDirPath, "data/", "runs/Nets/"+str(seed)+str(date)+"_"+NETS+"_"+str(HID_DIM)+"_"+str(LR))
+    save_path = os.path.join(parentDirPath, "data/", "runs/Nets/"+str(seed)+str(date)+"_"+NETS+"_"\
+        +str(HID_DIM)+"_NO_GAUS_"+str(LR)+"_"+str(batch_size))
     try:
         os.makedirs(save_path)
     except OSError as exc:
@@ -99,7 +100,7 @@ if __name__ == "__main__":
     
     #create a loop to call the train function the model for 1000 epochs, each epoch will have 100 iterations. Save the model after every 1000 epochs
     iter = X_train.shape[0]//batch_size
-    epochs = 50000
+    epochs = 6000
     for epoch in range(epochs):
         #print progress percentage the epoch number and delete the previous line
         print("Progress: %d%%, Epoch: %d, Nets: %s" % (epoch/epochs*100, epoch, NETS), end='\r')     

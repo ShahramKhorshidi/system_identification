@@ -10,14 +10,17 @@ if __name__ == "__main__":
     dirPath = os.path.dirname(os.path.realpath(__file__))
     parentDirPath = os.path.dirname(dirPath)
     data_path = os.path.join(parentDirPath, "data/solo/")
-    model_path = os.path.join(parentDirPath,"data/runs/Nets/340705.Sep.13.47_estimator_1000_1e-06", "epoch 15000.dat")
+    model_path = os.path.join(parentDirPath,"data/runs/Nets/340705.Sep.17.25_estimator_2048_NO_GAUS_1e-06_256", "epoch 2000.dat")
 
     # Load the data from the validation trajectory
-    q = np.loadtxt(data_path + "nn_eval_robot_q.dat", delimiter='\t', dtype=np.float32)
-    dq = np.loadtxt(data_path + "nn_eval_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    ddq = np.loadtxt(data_path + "nn_eval_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    cnt = np.loadtxt(data_path + "nn_eval_robot_contact.dat", delimiter='\t', dtype=np.float32)
-    tau = np.loadtxt(data_path + "nn_eval_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    motion_name = "eval_bound"
+    start = 0
+    end = 500
+    q = np.loadtxt(data_path + f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    dq = np.loadtxt(data_path + f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    ddq = np.loadtxt(data_path + f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    cnt = np.loadtxt(data_path + f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    tau = np.loadtxt(data_path + f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     
     # Stack the data into a single array
     X_val = np.vstack((q, dq, ddq, cnt))
@@ -29,7 +32,7 @@ if __name__ == "__main__":
     U_T = U_T.permute(1,0)
     
     # Replacing x and y position with delta_x and delta_y for each trajectory 
-    X_T[1:2000, 0:2] = X_T[1:2000, 0:2] - X_T[0:1999, 0:2]
+    X_T[1:500, 0:2] = X_T[1:500, 0:2] - X_T[0:499, 0:2]
     X_T[0, 0:2] = 0
 
     # scale the input to be between -1 and 1 for each column
@@ -51,7 +54,7 @@ if __name__ == "__main__":
     # Predict the torques
     tau_pred = est.cal_tau(X_T)
     
-    # Convert the predicted torque back to numpy and unnormalize it
+    # Unnormalize the predicted torque and convert it back to numpy
     tau_pred = ((tau_pred + 1) * (U_T_MAX.to(device) - U_T_MIN.to(device))) / 2 + U_T_MIN.to(device)  # Unnormalize the data
     tau_pred = tau_pred.cpu().numpy()
     
