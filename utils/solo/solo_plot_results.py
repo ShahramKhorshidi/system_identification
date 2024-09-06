@@ -7,35 +7,37 @@ from src.sys_identification import SystemIdentification
 
 
 def read_data(path, motion_name, data_noisy):
-    robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)
-    robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)
-    robot_ee_force = np.loadtxt(path+f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float32)
-    robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
+    start = 0
+    end = 500
+    robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_ee_force = np.loadtxt(path+f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float32)[:, start:end]
+    robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)[:, start:end]
+    tau_ped_nn = np.loadtxt(path+"tau_pred_nn.dat", delimiter='\t', dtype=np.float32).T[:, 0:end]
     if data_noisy:
         # Butterworth filter parameters
         order = 5  # Filter order
-        cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        cutoff_freq = 0.3  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
         # Apply Butterworth filter to each data (row in the data array)
         robot_dq = signal.filtfilt(b, a, robot_dq, axis=1)
         robot_ddq = signal.filtfilt(b, a, robot_ddq, axis=1)
-    return robot_q, robot_dq, robot_ddq, robot_tau, robot_ee_force, robot_contact
+    return robot_q, robot_dq, robot_ddq, robot_tau, robot_ee_force, robot_contact, tau_ped_nn
     
     
 if __name__ == "__main__":
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     path = os.path.dirname(dir_path) # Root directory of the workspace
     
     # Load the trajectory and predicted tau_nn from the motion name
-    motion_name = "nn_eval"
-    q, dq, ddq, torque, force, cnt = read_data(path+"/data/solo/", motion_name, True)
-    tau_ped_nn = np.loadtxt(path+"/data/solo/tau_pred_nn.dat", delimiter='\t', dtype=np.float32)
+    motion_name = "eval_bound"
+    q, dq, ddq, torque, force, cnt, tau_ped_nn = read_data(path+"/data/solo/", motion_name, True)
     
     # Load the identified model parameters optimized over noisy data
-    identified_params = "noisy"
+    identified_params = "train"
     phi_prior = np.loadtxt(path+"/data/solo/solo_phi_prior.dat", delimiter='\t', dtype=np.float32)
     phi_full_llsq = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_full_llsq.dat", delimiter='\t', dtype=np.float32)
     phi_full_lmi = np.loadtxt(path+"/data/solo/"+f"{identified_params}_phi_full_lmi.dat", delimiter='\t', dtype=np.float32)
@@ -52,7 +54,7 @@ if __name__ == "__main__":
     sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
     
     # Show Results
-    sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
+    # sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
     
     # Plot physical consistency
     plotter = PlotClass(phi_prior)
@@ -76,8 +78,20 @@ if __name__ == "__main__":
     # plotter.plot_inertia(phi_proj_lmi, "Projected LMI_Second Moment")
 
     # plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_prior, sys_idnt, "Phi Prior", force)
-    # plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_full_lmi, sys_idnt, "Full Sensing", force)
-    plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v_proj, b_c_proj, phi_proj_lmi, sys_idnt, "Projected LMI", force)
-    plotter.plot_nn_torques(torque.T, tau_ped_nn, "NN")
+    tau_proj_llsq = plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_proj_llsq, sys_idnt, "Projected LLSQ", force)
+    tau_full_lmi = plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v, b_c, phi_full_lmi, sys_idnt, "Full Sensing", force)
+    tau_proj_lmi = plotter.plot_solo_torques(q, dq, ddq, cnt, torque, b_v_proj, b_c_proj, phi_proj_lmi, sys_idnt, "Projected LMI", force)
     
+    # Normalize the measured torque if we want to compare against normalized output
+    # tau_min = np.min(torque, axis=1)
+    # tau_max = np.max(torque, axis=1)
+    # torque = 2 * (torque - tau_min[:, None]) / (tau_max[:, None] - tau_min[:, None]) - 1
+    plotter.plot_nn_torques(torque.T, tau_ped_nn.T, "NN")
+    
+    # Saving toruqes for plotting later for the paper, shape: (2000,12)
+    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_meas.dat", torque, delimiter='\t')
+    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_llsq.dat", tau_proj_llsq, delimiter='\t')
+    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_full_lmi.dat", tau_full_lmi, delimiter='\t')
+    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_lmi.dat", tau_proj_lmi, delimiter='\t')
+    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_ped_nn.dat", tau_ped_nn.T, delimiter='\t')
     plt.show()

@@ -280,6 +280,7 @@ class PlotClass():
         axes[2][0].set_ylabel('HL - Torque (Nm)')
         axes[3][0].set_ylabel('HR - Torque (Nm)')
         plt.tight_layout()
+        return predicted
 
     def plot_nn_torques(self, tau, tau_nn, title):
         error = tau - tau_nn

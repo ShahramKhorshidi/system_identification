@@ -125,27 +125,27 @@ if __name__ == "__main__":
     time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_medium_sideways.csv")
     time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_fast_forwardbackward.csv")
     
-    # Concatenate data from all the trajectories into one array
+    # # Concatenate data from all the trajectories into one array
     q = np.hstack((    q_0,   q_1,   q_2,   q_3,   q_4,   q_5))
     dq = np.hstack((  dq_0,  dq_1,  dq_2,  dq_3,  dq_4,  dq_5))
     ddq = np.hstack((ddq_0, ddq_1, ddq_2, ddq_3, ddq_4, ddq_5))
     tau = np.hstack((tau_0, tau_1, tau_2, tau_3, tau_4, tau_5))
     cnt = np.hstack((cnt_0, cnt_1, cnt_2, cnt_3, cnt_4, cnt_5))
     
-    # Save the combined trajectories into "spot" file
-    # This data is used for inertial parameters identification
-    np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
-    np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
-    np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
-    np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
-    np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
+    # # Save the combined trajectories into "spot" file
+    # # This data is used for inertial parameters identification
+    # np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
+    # np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
+    # np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
+    # np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
+    # np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
     
-    # This data is used for validation with a new locomotion task 
-    np.savetxt(path+"spot_validate_robot_q.dat", q_6, delimiter='\t')
-    np.savetxt(path+"spot_validate_robot_dq.dat", dq_6, delimiter='\t')
-    np.savetxt(path+"spot_validate_robot_ddq.dat", ddq_6, delimiter='\t')
-    np.savetxt(path+"spot_validate_robot_tau.dat", tau_6, delimiter='\t')
-    np.savetxt(path+"spot_validate_robot_contact.dat", cnt_6, delimiter='\t')
+    # # This data is used for validation with a new locomotion task 
+    # np.savetxt(path+"spot_validate_robot_q.dat", q_6, delimiter='\t')
+    # np.savetxt(path+"spot_validate_robot_dq.dat", dq_6, delimiter='\t')
+    # np.savetxt(path+"spot_validate_robot_ddq.dat", ddq_6, delimiter='\t')
+    # np.savetxt(path+"spot_validate_robot_tau.dat", tau_6, delimiter='\t')
+    # np.savetxt(path+"spot_validate_robot_contact.dat", cnt_6, delimiter='\t')
     
     # ddq_diff = finite_diff(time, dq)
-    # plot(ddq)
+    plot(ddq)

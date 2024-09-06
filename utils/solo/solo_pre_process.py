@@ -45,7 +45,7 @@ def plot_data(path, motion_name):
     robot_ee_force = np.loadtxt(path+f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float64)
     robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)
 
-    orig_signal = robot_q
+    orig_signal = robot_ddq
     # Butterworth filter parameters
     order = 5  # Filter order
     cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
@@ -62,9 +62,9 @@ def plot_data(path, motion_name):
     savitzky_signal = savgol_filter(orig_signal, window_length, polyorder)
 
     # Plot the data
-    fig, axs = plt.subplots(6, figsize=(10, 20))
+    fig, axs = plt.subplots(7, figsize=(10, 20))
 
-    for i in range(6):
+    for i in range(7):
         j = i
         axs[i].plot(orig_signal[j, :],label='Original' )
         axs[i].plot(butter_signal[j, :], label='Butter')
@@ -76,8 +76,8 @@ def plot_data(path, motion_name):
     plt.show()
     
 if __name__ == "__main__":
-    dir_path = os.path.dirname(os.path.realpath(__file__))
+    dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/solo/"
-    preprocessing(path)
-    # plot_data(path, "noisy")
+    # preprocessing(path)
+    plot_data(path, "train")
