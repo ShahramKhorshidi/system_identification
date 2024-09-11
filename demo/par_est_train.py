@@ -20,11 +20,11 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 if __name__ == "__main__":
     # Read the data from file
     load_path = os.path.join(parentDirPath, "data/solo/")
-    # q = np.loadtxt(load_path+"train_robot_q.dat", delimiter='\t', dtype=np.float32)
-    # dq = np.loadtxt(load_path+"train_robot_dq.dat", delimiter='\t', dtype=np.float32)
-    # ddq = np.loadtxt(load_path+"train_robot_ddq.dat", delimiter='\t', dtype=np.float32)
-    # cnt = np.loadtxt(load_path+"train_robot_contact.dat", delimiter='\t', dtype=np.float32)
-    # tau = np.loadtxt(load_path+"train_robot_tau.dat", delimiter='\t', dtype=np.float32)
+    # q = np.loadtxt(load_path+"train2_robot_q.dat", delimiter='\t', dtype=np.float32)[:, :10000]
+    # dq = np.loadtxt(load_path+"train2_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, :10000]
+    # ddq = np.loadtxt(load_path+"train2_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, :10000]
+    # cnt = np.loadtxt(load_path+"train2_robot_contact.dat", delimiter='\t', dtype=np.float32)[:, :10000]
+    # tau = np.loadtxt(load_path+"train2_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, :10000]
 
     # X_t = q
     # X_t = np.vstack((X_t, dq))
@@ -46,15 +46,17 @@ if __name__ == "__main__":
     X_T = X_T.permute(1,0)#[:10, :]
     U_T = U_T.permute(1,0)#[:10, :]
 
-    # Replacing x and y position with delta_x and delta_y for each trajectory 
-    X_T[1:2000, 0:2] = X_T[1:2000, 0:2] - X_T[0:1999, 0:2]
+    # Replacing x and y position with delta_x and delta_y for each trajectory
+    # We have three trajectories each of the size N_s=3400
+    N_s = 3400
+    X_T[1:N_s, 0:2] = X_T[1:N_s, 0:2] - X_T[0:N_s-1, 0:2]
     X_T[0, 0:2] = 0
+    
+    X_T[N_s+1:2*N_s, 0:2] = X_T[N_s+1:2*N_s, 0:2] - X_T[N_s:2*N_s-1, 0:2]
+    X_T[N_s, 0:2] = 0
 
-    X_T[2001:4000, 0:2] = X_T[2001:4000, 0:2] - X_T[2000:3999, 0:2]
-    X_T[2000, 0:2] = 0
-
-    X_T[4001:6000, 0:2] = X_T[4001:6000, 0:2] - X_T[4000:5999, 0:2]
-    X_T[4000, 0:2] = 0   
+    X_T[2*N_s+1:, 0:2] = X_T[2*N_s+1:, 0:2] - X_T[2*N_s:9999, 0:2]
+    X_T[2*N_s, 0:2] = 0   
 
     # scale the data to be between -1 and 1 for each column
     X_T_MIN = X_T[:, :-4].min(0)[0]
@@ -67,9 +69,18 @@ if __name__ == "__main__":
     
     print(torch.isnan(X_T).any())
     print(torch.isnan(U_T).any())
-    batch_size = 256
-    # pretrain_steps = 5000
     
+    # Shuffle the data
+    idx = np.random.permutation(X_T.shape[0])
+    X_t_norm = X_T[idx]
+    U_t_norm = U_T[idx]
+    
+    # Change the sample size
+    size = 10000 # Number of samples used for training
+    X_t_norm = X_t_norm[:size, :]
+    U_t_norm = U_t_norm[:size, :]
+    batch_size = 256
+
     save_path = os.path.join(parentDirPath, "data/", "runs/Nets/"+str(seed)+str(date)+"_"+NETS+"_"\
         +str(HID_DIM)+"_NO_GAUS_"+str(LR)+"_"+str(batch_size))
     try:
@@ -83,11 +94,6 @@ if __name__ == "__main__":
     # X_t_norm = X_T.view(-1, traj_length, X_T.shape[1])
     # U_t_norm = U_T.view(-1, traj_length, U_T.shape[1])
     
-    #shuffle the data
-    idx = np.random.permutation(X_T.shape[0])
-    X_t_norm = X_T[idx]
-    U_t_norm = U_T[idx]
-    
     #split the data into training and testing data 85% training and 15% testing
     train_size = int(X_t_norm.shape[0]*0.8)  
     
@@ -100,7 +106,7 @@ if __name__ == "__main__":
     
     #create a loop to call the train function the model for 1000 epochs, each epoch will have 100 iterations. Save the model after every 1000 epochs
     iter = X_train.shape[0]//batch_size
-    epochs = 6000
+    epochs = 5000
     for epoch in range(epochs):
         #print progress percentage the epoch number and delete the previous line
         print("Progress: %d%%, Epoch: %d, Nets: %s" % (epoch/epochs*100, epoch, NETS), end='\r')     

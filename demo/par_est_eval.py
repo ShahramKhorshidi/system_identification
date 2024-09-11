@@ -10,12 +10,12 @@ if __name__ == "__main__":
     dirPath = os.path.dirname(os.path.realpath(__file__))
     parentDirPath = os.path.dirname(dirPath)
     data_path = os.path.join(parentDirPath, "data/solo/")
-    model_path = os.path.join(parentDirPath,"data/runs/Nets/340705.Sep.17.25_estimator_2048_NO_GAUS_1e-06_256", "epoch 2000.dat")
+    model_path = os.path.join(parentDirPath,"data/runs/Nets/Samp_9000", "epoch 1000.dat")
 
     # Load the data from the validation trajectory
-    motion_name = "eval_bound"
+    motion_name = "eval_jump"
     start = 0
-    end = 500
+    end = 1000
     q = np.loadtxt(data_path + f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     dq = np.loadtxt(data_path + f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     ddq = np.loadtxt(data_path + f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
@@ -32,7 +32,7 @@ if __name__ == "__main__":
     U_T = U_T.permute(1,0)
     
     # Replacing x and y position with delta_x and delta_y for each trajectory 
-    X_T[1:500, 0:2] = X_T[1:500, 0:2] - X_T[0:499, 0:2]
+    X_T[1:end, 0:2] = X_T[1:end, 0:2] - X_T[0:end-1, 0:2]
     X_T[0, 0:2] = 0
 
     # scale the input to be between -1 and 1 for each column
@@ -59,4 +59,9 @@ if __name__ == "__main__":
     tau_pred = tau_pred.cpu().numpy()
     
     # Save the predicted torque as a numpy file
+    error = tau.T - tau_pred
+    rmse_total = np.sqrt(np.mean(np.square(np.linalg.norm(error, axis=1)))) # overall RMSE
+    joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
+    print(f'\n-------------------- NN parameters --------------------')
+    print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
     np.savetxt(data_path + "tau_pred_nn.dat", tau_pred, delimiter='\t')

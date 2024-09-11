@@ -8,7 +8,7 @@ from src.sys_identification import SystemIdentification
 
 def read_data(path, motion_name, filter_type):
     start = 0
-    end = 6000
+    end = 10000 # Number of samples used to optimize the model
     robot_q = np.loadtxt(path+motion_name+"_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_dq = np.loadtxt(path+motion_name+"_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_ddq = np.loadtxt(path+motion_name+"_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]

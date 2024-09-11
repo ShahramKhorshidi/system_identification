@@ -16,7 +16,7 @@ def read_data(path, motion_name, filter_type):
     if filter_type=="butterworth":
         # Butterworth filter parameters
         order = 5  # Filter order
-        cutoff_freq = 0.15  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
+        cutoff_freq = 0.2  # Normalized cutoff frequency (0.1 corresponds to 0.1 * Nyquist frequency)
         # Design Butterworth filter
         b, a = signal.butter(order, cutoff_freq, btype='low', analog=False)
         # Apply Butterworth filter to each data (row in the data array)
