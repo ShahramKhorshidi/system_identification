@@ -16,12 +16,12 @@ def preprocessing(path):
     robot_contact =[]
     
     for i in range(3):
-        robot_q.append(np.loadtxt(path+str(i)+"_robot_q.dat", delimiter='\t', dtype=np.float64))
-        robot_dq.append(np.loadtxt(path+str(i)+"_robot_dq.dat", delimiter='\t', dtype=np.float64))
-        robot_ddq.append(np.loadtxt(path+str(i)+"_robot_ddq.dat", delimiter='\t', dtype=np.float64))
-        robot_tau.append(np.loadtxt(path+str(i)+"_robot_tau.dat", delimiter='\t', dtype=np.float64))
-        robot_ee_force.append(np.loadtxt(path+str(i)+"_robot_ee_force.dat", delimiter='\t', dtype=np.float64))
-        robot_contact.append(np.loadtxt(path+str(i)+"_robot_contact.dat", delimiter='\t', dtype=np.float64))
+        robot_q.append(np.loadtxt(path+str(i)+"_robot_q.dat", delimiter='\t', dtype=np.float64)[:, :3400])
+        robot_dq.append(np.loadtxt(path+str(i)+"_robot_dq.dat", delimiter='\t', dtype=np.float64)[:, :3400])
+        robot_ddq.append(np.loadtxt(path+str(i)+"_robot_ddq.dat", delimiter='\t', dtype=np.float64)[:, :3400])
+        robot_tau.append(np.loadtxt(path+str(i)+"_robot_tau.dat", delimiter='\t', dtype=np.float64)[:, :3400])
+        robot_ee_force.append(np.loadtxt(path+str(i)+"_robot_ee_force.dat", delimiter='\t', dtype=np.float64)[:, :3400])
+        robot_contact.append(np.loadtxt(path+str(i)+"_robot_contact.dat", delimiter='\t', dtype=np.float64)[:, :3400])
     
     q = np.hstack(robot_q)
     dq = np.hstack(robot_dq)
@@ -30,12 +30,22 @@ def preprocessing(path):
     force = np.hstack(robot_ee_force)
     contact = np.hstack(robot_contact)
     
-    np.savetxt(path+"train_robot_q.dat", q, delimiter='\t')
-    np.savetxt(path+"train_robot_dq.dat", dq, delimiter='\t')
-    np.savetxt(path+"train_robot_ddq.dat", ddq, delimiter='\t')
-    np.savetxt(path+"train_robot_tau.dat", tau, delimiter='\t')
-    np.savetxt(path+"train_robot_ee_force.dat", force, delimiter='\t')
-    np.savetxt(path+"train_robot_contact.dat", contact, delimiter='\t')
+    X = np.concatenate((q, dq, ddq, tau, force, contact), axis=0)
+    np.random.shuffle(X.T)
+    
+    q = X[:19, :]
+    dq = X[19:37, :]
+    ddq = X[37:55, :]
+    tau = X[55:67, :]
+    force = X[67:79, :]
+    contact = X[79:, :]
+    
+    np.savetxt(path+"train2_robot_q.dat", q, delimiter='\t')
+    np.savetxt(path+"train2_robot_dq.dat", dq, delimiter='\t')
+    np.savetxt(path+"train2_robot_ddq.dat", ddq, delimiter='\t')
+    np.savetxt(path+"train2_robot_tau.dat", tau, delimiter='\t')
+    np.savetxt(path+"train2_robot_ee_force.dat", force, delimiter='\t')
+    np.savetxt(path+"train2_robot_contact.dat", contact, delimiter='\t')
 
 def plot_data(path, motion_name):
     robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float64)
@@ -80,4 +90,4 @@ if __name__ == "__main__":
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/solo/"
     # preprocessing(path)
-    plot_data(path, "train")
+    plot_data(path, "train2")
