@@ -233,6 +233,7 @@ class PlotClass():
         axes[2][0].set_ylabel('HL - Torque (Nm)')
         axes[3][0].set_ylabel('HR - Torque (Nm)')
         plt.tight_layout()
+        return measured, predicted
     
     def plot_solo_torques(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, sys_idnt, title, force):
         predicted = []
