@@ -68,7 +68,7 @@ class Solver():
         # Returns the bounding ellipsoid matrix (Q:4x4) as a numpy array
         Q_full = np.zeros((4,4), dtype=np.float32)
         Q = np.linalg.inv(np.diag(semi_axes)**2)
-        Q_full[:3, :3] = Q
+        Q_full[:3, :3] = -Q
         Q_full[:3, 3] = Q @ center
         Q_full[3, :3] = (Q @ center).T
         Q_full[3, 3] = 1 - (center.T @ Q @ center)
