@@ -5,11 +5,12 @@ from bosdyn.client import create_standard_sdk
 from bosdyn.client.sdk import Sdk
 from bosdyn.client.robot import Robot
 from bosdyn.client.robot_state import RobotStateClient
+from bosdyn.client.frame_helpers import get_a_tform_b
 
 import csv
 import numpy as np
 
-NUMBER_OF_OBSERVATIONS = 5000
+NUMBER_OF_OBSERVATIONS = 7000
 
 TIMESTAMP_LEN = 2
 POSITION_LEN = 19
@@ -82,34 +83,53 @@ def get_robot_state(robot_state_client : RobotStateClient, qd_odom_old, qd_visio
     timestamp[1] = robot_state.kinematic_state.acquisition_timestamp.nanos
 
     # base position
-    q_odom[0] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.position.x
-    q_odom[1] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.position.y
-    q_odom[2] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.position.z
-    q_odom[3] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.rotation.x
-    q_odom[4] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.rotation.y
-    q_odom[5] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.rotation.z
-    q_odom[6] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("odom").parent_tform_child.rotation.w
-    q_vision[0] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.position.x
-    q_vision[1] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.position.y
-    q_vision[2] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.position.z
-    q_vision[3] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.x
-    q_vision[4] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.y
-    q_vision[5] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.z
-    q_vision[6] = robot_state.kinematic_state.transforms_snapshot.child_to_parent_edge_map.get("vision").parent_tform_child.rotation.w
+    frame_tree_snapshot = robot_state.kinematic_state.transforms_snapshot
+    odom_tform_body   = get_a_tform_b(frame_tree_snapshot, 'odom', 'body')   # body frame in odom frame
+    vision_tform_body = get_a_tform_b(frame_tree_snapshot, 'vision', 'body') # body frame in vision frame
+    q_odom[0] = odom_tform_body.position.x
+    q_odom[1] = odom_tform_body.position.y
+    q_odom[2] = odom_tform_body.position.z
+    q_odom[3] = odom_tform_body.rotation.x
+    q_odom[4] = odom_tform_body.rotation.y
+    q_odom[5] = odom_tform_body.rotation.z
+    q_odom[6] = odom_tform_body.rotation.w
+    q_vision[0] = vision_tform_body.position.x
+    q_vision[1] = vision_tform_body.position.y
+    q_vision[2] = vision_tform_body.position.z
+    q_vision[3] = vision_tform_body.rotation.x
+    q_vision[4] = vision_tform_body.rotation.y
+    q_vision[5] = vision_tform_body.rotation.z
+    q_vision[6] = vision_tform_body.rotation.w
 
     # base velocity
-    qd_odom[0] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.x
-    qd_odom[1] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.y
-    qd_odom[2] = robot_state.kinematic_state.velocity_of_body_in_vision.linear.z
-    qd_odom[3] = robot_state.kinematic_state.velocity_of_body_in_vision.angular.x
-    qd_odom[4] = robot_state.kinematic_state.velocity_of_body_in_vision.angular.y
-    qd_odom[5] = robot_state.kinematic_state.velocity_of_body_in_vision.angular.z
-    qd_vision[0] = robot_state.kinematic_state.velocity_of_body_in_odom.linear.x
-    qd_vision[1] = robot_state.kinematic_state.velocity_of_body_in_odom.linear.y
-    qd_vision[2] = robot_state.kinematic_state.velocity_of_body_in_odom.linear.z
-    qd_vision[3] = robot_state.kinematic_state.velocity_of_body_in_odom.angular.x
-    qd_vision[4] = robot_state.kinematic_state.velocity_of_body_in_odom.angular.y
-    qd_vision[5] = robot_state.kinematic_state.velocity_of_body_in_odom.angular.z
+    odom_tform_body_rotation_matrix   = odom_tform_body.rotation.to_matrix()   # rotate coordinates in body frame to odom frame
+    vision_tform_body_rotation_matrix = vision_tform_body.rotation.to_matrix() # rotate coordinates in body frame to vison frame
+
+    velocity_of_body_in_odom_linear = np.array([
+        robot_state.kinematic_state.velocity_of_body_in_odom.linear.x,
+        robot_state.kinematic_state.velocity_of_body_in_odom.linear.y,
+        robot_state.kinematic_state.velocity_of_body_in_odom.linear.z
+    ])
+    velocity_of_body_in_odom_angular = np.array([
+        robot_state.kinematic_state.velocity_of_body_in_odom.angular.x,
+        robot_state.kinematic_state.velocity_of_body_in_odom.angular.y,
+        robot_state.kinematic_state.velocity_of_body_in_odom.angular.z
+    ])
+    velocity_of_body_in_vision_linear = np.array([
+        robot_state.kinematic_state.velocity_of_body_in_vision.linear.x,
+        robot_state.kinematic_state.velocity_of_body_in_vision.linear.y,
+        robot_state.kinematic_state.velocity_of_body_in_vision.linear.z
+    ])
+    velocity_of_body_in_vision_angular = np.array([
+        robot_state.kinematic_state.velocity_of_body_in_vision.angular.x,
+        robot_state.kinematic_state.velocity_of_body_in_vision.angular.y,
+        robot_state.kinematic_state.velocity_of_body_in_vision.angular.z
+    ])
+
+    qd_odom[0:3] = odom_tform_body_rotation_matrix.T @ velocity_of_body_in_odom_linear
+    qd_odom[3:6] = odom_tform_body_rotation_matrix.T @ velocity_of_body_in_odom_angular
+    qd_vision[0:3] = vision_tform_body_rotation_matrix.T @ velocity_of_body_in_vision_linear
+    qd_vision[3:6] = vision_tform_body_rotation_matrix.T @ velocity_of_body_in_vision_angular
     
     # joint states: position, velocity, acceleration, load
     for js in range(0, len(robot_state.kinematic_state.joint_states)):
@@ -122,7 +142,7 @@ def get_robot_state(robot_state_client : RobotStateClient, qd_odom_old, qd_visio
         tau[js]          = robot_state.kinematic_state.joint_states[js].load.value
 
     # base and joint acceleration via finite differencing
-    for i in range(0, ACCELERATION_LEN):
+    for i in range(0, 6):
         delta_time_seconds = timestamp[0] - timestamp_old[0]
         delta_time_nanoseconds = timestamp[1] - timestamp_old[1]
         delta_time = delta_time_seconds + delta_time_nanoseconds*0.000000001
