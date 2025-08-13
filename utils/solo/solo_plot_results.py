@@ -8,14 +8,14 @@ from src.sys_identification import SystemIdentification
 
 def read_data(path, motion_name, data_noisy):
     start = 0
-    end = 1800
+    end = 1000
     robot_q = np.loadtxt(path+f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_dq = np.loadtxt(path+f"{motion_name}_robot_dq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_ddq = np.loadtxt(path+f"{motion_name}_robot_ddq.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_tau = np.loadtxt(path+f"{motion_name}_robot_tau.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_ee_force = np.loadtxt(path+f"{motion_name}_robot_ee_force.dat", delimiter='\t', dtype=np.float32)[:, start:end]
     robot_contact = np.loadtxt(path+f"{motion_name}_robot_contact.dat", delimiter='\t', dtype=np.int8)[:, start:end]
-    tau_ped_nn = np.loadtxt(path+"tau_pred_nn.dat", delimiter='\t', dtype=np.float32).T[:, 0:end]
+    tau_ped_nn = np.loadtxt(path+"tau_pred_nn.dat", delimiter='\t', dtype=np.float32).T[:, start:end]
     if data_noisy:
         # Butterworth filter parameters
         order = 5  # Filter order
@@ -33,7 +33,7 @@ if __name__ == "__main__":
     path = os.path.dirname(dir_path) # Root directory of the workspace
     
     # Load the trajectory and predicted tau_nn from the motion name
-    motion_name = "eval_jump"
+    motion_name = "eval_trot"
     q, dq, ddq, torque, force, cnt, tau_ped_nn = read_data(path+"/data/solo/", motion_name, True)
 
     # Load the identified model parameters optimized over noisy data
@@ -55,6 +55,9 @@ if __name__ == "__main__":
     
     # Show Results
     sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
+    
+    # Save new URDF file with identified parameters
+    sys_idnt.update_urdf_inertial_params(phi_proj_lmi, b_v, b_c)
     
     # Plot physical consistency
     plotter = PlotClass(phi_prior)
@@ -89,8 +92,8 @@ if __name__ == "__main__":
     plotter.plot_nn_torques(torque.T, tau_ped_nn.T, "NN")
     
     # Saving toruqes for plotting later for the paper, shape: (2000,12)
-    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_meas.dat", torque, delimiter='\t')
-    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_llsq.dat", tau_proj_llsq, delimiter='\t')
-    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_lmi.dat", tau_proj_lmi, delimiter='\t')
-    np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_ped_nn.dat", tau_ped_nn.T, delimiter='\t')
+    # np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_meas.dat", torque, delimiter='\t')
+    # np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_llsq.dat", tau_proj_llsq, delimiter='\t')
+    # np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_proj_lmi.dat", tau_proj_lmi, delimiter='\t')
+    # np.savetxt(path+"/data/solo/paper/"+f"{motion_name}_tau_ped_nn.dat", tau_ped_nn.T, delimiter='\t')
     plt.show()

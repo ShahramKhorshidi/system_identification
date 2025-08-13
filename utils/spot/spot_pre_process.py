@@ -43,7 +43,7 @@ def preprocessing(n, path, motion_name):
         q[7:, i] = q_joints[i, :]
         
         # Robot velocity
-        dq[:6, i] = dq_base_vision[i, :]
+        dq[:6, i] = dq_base_odom[i, :]
         dq[6:, i] = dq_joints[i, :]
         
         # Robot acceleration
@@ -116,15 +116,15 @@ if __name__ == "__main__":
     dir_path = os.path.dirname(os.path.dirname(os.path.realpath(__file__)))
     parent_dir_path = os.path.dirname(dir_path) # Root directory of the workspace
     path = parent_dir_path+"/data/spot/"
-    num_samples = 1000 # Number of samples for each trajectory
+    num_samples = 5000 # Number of samples for each trajectory
     time_0, q_0, dq_0, ddq_0, tau_0, cnt_0 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_squat.csv")
     time_1, q_1, dq_1, ddq_1, tau_1, cnt_1 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_roll.csv")
     time_2, q_2, dq_2, ddq_2, tau_2, cnt_2 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_pitch.csv")
     time_3, q_3, dq_3, ddq_3, tau_3, cnt_3 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_pose_yaw.csv")
     time_4, q_4, dq_4, ddq_4, tau_4, cnt_4 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_sideways.csv")
-    time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_normal_speed_medium_forwardbackward.csv")
-    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_slow_forwardbackward.csv")
-    time_7, q_7, dq_7, ddq_7, tau_7, cnt_7 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_fast_sideways.csv")
+    time_5, q_5, dq_5, ddq_5, tau_5, cnt_5 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_high_speed_medium_forwardbackward.csv")
+    time_6, q_6, dq_6, ddq_6, tau_6, cnt_6 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_crawl_height_low_speed_medium_forwardbackward.csv")
+    time_7, q_7, dq_7, ddq_7, tau_7, cnt_7 = preprocessing(num_samples, path, motion_name="csv_files_2/spot_walk_height_normal_speed_fast_forwardbackward.csv") # forwardbackward
     
     # Concatenate data from all the trajectories into one array
     q = np.hstack((    q_0,   q_1,   q_2,   q_3,   q_4,   q_5,  q_6))
@@ -133,7 +133,7 @@ if __name__ == "__main__":
     tau = np.hstack((tau_0, tau_1, tau_2, tau_3, tau_4, tau_5, tau_6))
     cnt = np.hstack((cnt_0, cnt_1, cnt_2, cnt_3, cnt_4, cnt_5, cnt_6))
     
-    # Shuffle the data
+    # # Shuffle the data
     X = np.concatenate((q, dq, ddq, tau, cnt), axis=0)
     print(X.shape)
     q = X[:19, :]
@@ -144,18 +144,24 @@ if __name__ == "__main__":
     
     # Save the combined trajectories into "spot" file
     # This data is used for inertial parameters identification
-    np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
-    np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
-    np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
-    np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
-    np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
+    #np.savetxt(path+"spot_robot_q.dat", q, delimiter='\t')
+    #np.savetxt(path+"spot_robot_dq.dat", dq, delimiter='\t')
+    #np.savetxt(path+"spot_robot_ddq.dat", ddq, delimiter='\t')
+    #np.savetxt(path+"spot_robot_tau.dat", tau, delimiter='\t')
+    #np.savetxt(path+"spot_robot_contact.dat", cnt, delimiter='\t')
     
-    # This data is used for validation with a new locomotion task 
-    np.savetxt(path+"spot_walk_robot_q.dat", q_7, delimiter='\t')
-    np.savetxt(path+"spot_walk_robot_dq.dat", dq_7, delimiter='\t')
-    np.savetxt(path+"spot_walk_robot_ddq.dat", ddq_7, delimiter='\t')
-    np.savetxt(path+"spot_walk_robot_tau.dat", tau_7, delimiter='\t')
-    np.savetxt(path+"spot_walk_robot_contact.dat", cnt_7, delimiter='\t')
+    # # This data is used for validation with a new locomotion task
+    motion ="normal_forward_fast"
+    q_7[0, 1:] = q_7[0, 1:] - q_7[0, 0]
+    q_7[0, 0] = 0
+    q_7[1, 1:] = q_7[1, 1:] - q_7[1, 0]
+    q_7[1, 0] = 0
+    q_7[2, :] = q_7[2, :] + 0.5
+    np.savetxt(path+"walk_"+motion+"_q.dat", q_7, delimiter='\t')
+    np.savetxt(path+"walk_"+motion+"_dq.dat", dq_7, delimiter='\t')
+    np.savetxt(path+"walk_"+motion+"_ddq.dat", ddq_7, delimiter='\t')
+    np.savetxt(path+"walk_"+motion+"_tau.dat", tau_7, delimiter='\t')
+    np.savetxt(path+"walk_"+motion+"_contact.dat", cnt_7, delimiter='\t')
     
     # ddq_diff = finite_diff(time, dq)
-    # plot(ddq)
+    plot(dq_7)

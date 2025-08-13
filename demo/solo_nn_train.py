@@ -43,7 +43,7 @@ if __name__ == "__main__":
     U_T = torch.load(load_path+"U_t_torch.pt")
     
     # Test with a smaller data size of 10
-    X_T = X_T.permute(1,0)#[:10, :]
+    X_T = X_T.permute(1,0)#[:100, :]
     U_T = U_T.permute(1,0)#[:10, :]
 
     # Replacing x and y position with delta_x and delta_y for each trajectory

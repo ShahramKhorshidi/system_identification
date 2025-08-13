@@ -42,6 +42,12 @@ class TORQUE_ESTIMATOR(nn.Module):
                     nn.Linear(HID_DIM, HID_DIM),
                     #nn.BatchNorm1d(HID_DIM),
                     nn.Tanh(),
+                    # nn.Linear(HID_DIM, HID_DIM),
+                    # nn.LeakyReLU(),
+                    # nn.Linear(HID_DIM, HID_DIM),
+                    # nn.Tanh(),
+                    # nn.Linear(HID_DIM, HID_DIM),
+                    # nn.ReLU(),
                     nn.Linear(HID_DIM, output_dim))
         
         self.mu = nn.Linear(HID_DIM, output_dim)

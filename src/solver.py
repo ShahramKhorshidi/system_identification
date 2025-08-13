@@ -10,7 +10,6 @@ class Solver():
         self._num_samples = self._Y.shape[0]
         self._num_links = num_links
         self._num_inertial_params = self._Y.shape[1] // self._num_links
-        
         self._phi_prior = phi_prior  # Prior inertial parameters
         self.total_mass = total_mass
         self._bounding_ellipsoids = bounding_ellipsoids
@@ -21,9 +20,9 @@ class Solver():
         if self._identify_fric:
             self._B_v = B_v
             self._B_c = B_c
-            self.ndof = B_v.shape[1]
-            self._b_v = cp.Variable(self.ndof) # Viscous friction coefficient (Nm / (rad/s))
-            self._b_c = cp.Variable(self.ndof) # Coulomb friction coefficient (Nm)
+            self.num_joints = B_v.shape[1] # number of actuated joints
+            self._b_v = cp.Variable(self.num_joints) # Viscous friction coefficient (Nm / (rad/s))
+            self._b_c = cp.Variable(self.num_joints) # Coulomb friction coefficient (Nm)
         self._objective = None
         self._constraints = []
         self._problem = None

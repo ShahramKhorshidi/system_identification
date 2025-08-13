@@ -187,6 +187,16 @@ class PlotClass():
         axs2[2].legend()
         plt.tight_layout()
 
+    def proj_torques_null(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, sys_idnt):
+        tau_nn_proj = []
+        # For each data ponit we calculate the rgeressor and torque vector, and stack them
+        for i in range(q.shape[1]):
+            pred, meas = sys_idnt.calculate_predicted_torque(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi)
+            tau_nn_proj.append(meas[6:])
+        
+        tau_nn_proj = np.vstack(tau_nn_proj)
+        return tau_nn_proj
+    
     def plot_proj_torques(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, sys_idnt, title):
         predicted = []
         measured = []

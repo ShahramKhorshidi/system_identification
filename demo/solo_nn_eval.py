@@ -10,10 +10,10 @@ if __name__ == "__main__":
     dirPath = os.path.dirname(os.path.realpath(__file__))
     parentDirPath = os.path.dirname(dirPath)
     data_path = os.path.join(parentDirPath, "data/solo/")
-    model_path = os.path.join(parentDirPath,"data/runs/Nets/Samp_9000", "epoch 1000.dat")
+    model_path = os.path.join(parentDirPath,"data/runs/Nets/Samp_10000", "epoch 1000.dat")
 
     # Load the data from the validation trajectory
-    motion_name = "eval_jump"
+    motion_name = "eval_trot"
     start = 0
     end = 1000
     q = np.loadtxt(data_path + f"{motion_name}_robot_q.dat", delimiter='\t', dtype=np.float32)[:, start:end]
@@ -64,4 +64,4 @@ if __name__ == "__main__":
     joint_tau_rmse = np.sqrt(np.mean(np.square(error), axis=0)) # RMSE for each joint
     print(f'\n-------------------- NN parameters --------------------')
     print(f'Torque Prediction Errors: RMSE_total= {rmse_total}\nRMSE_per_joints={joint_tau_rmse}')
-    np.savetxt(data_path + "tau_pred_nn.dat", tau_pred, delimiter='\t')
+    np.savetxt(data_path + "jump_tau_pred_nn.dat", tau_pred, delimiter='\t')

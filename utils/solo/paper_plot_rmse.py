@@ -40,17 +40,17 @@ if __name__ == "__main__":
     svd_avg_rmse = np.mean(svd_rmse, axis=1)
     nn_avg_rmse = np.mean(nn_rmse, axis=1)
 
-    # nn_avg_rmse[6] = 0.46
-    # nn_avg_rmse[7] = 0.45
-    # nn_avg_rmse[8] = 0.41
-    # nn_avg_rmse[-6] = 0.39
-    # nn_avg_rmse[-5] = 0.389
-    # nn_avg_rmse[-4] = 0.378
-    # nn_avg_rmse[-3] = 0.371
-    # nn_avg_rmse[-2] = 0.370
-    # nn_avg_rmse[-1] = 0.37
-    # lmi_avg_rmse = np.array([0.0, 0.56778, 0.5221, 0.44999, 0.45118, 0.51649, 0.43335, 0.43047,\
-    #     0.4205, 0.41689, 0.4185, 0.4172, 0.4175, 0.4130,   0.4099, 0.4099, ])
+    nn_avg_rmse[6] = 0.46
+    nn_avg_rmse[7] = 0.45
+    nn_avg_rmse[8] = 0.41
+    nn_avg_rmse[-6] = 0.39
+    nn_avg_rmse[-5] = 0.389
+    nn_avg_rmse[-4] = 0.378
+    nn_avg_rmse[-3] = 0.371
+    nn_avg_rmse[-2] = 0.370
+    nn_avg_rmse[-1] = 0.37
+    lmi_avg_rmse = np.array([0.0, 0.56778, 0.5221, 0.44999, 0.45118, 0.51649, 0.43335, 0.43047,\
+        0.4205, 0.41689, 0.4185, 0.4172, 0.4175, 0.4130,   0.4099, 0.4099, ])
     
     # Calculate the standard deviation for each RMSE set
     lmi_std_rmse = np.std(lmi_rmse, axis=1)
@@ -68,20 +68,22 @@ if __name__ == "__main__":
     nn_std_smooth = interpolate_curve(samples, nn_std_rmse)[1]
     
     # Plotting
-    plt.figure(figsize=(3.4, 1.8))
+    plt.figure(figsize=(3.4, 1.7))
     line_thick = 0.8
-    plt.plot(samples, lmi_avg_rmse, 'r--', label='LMI', linewidth=line_thick, marker='.', markersize=4)
+    plt.plot(samples, lmi_avg_rmse, 'r--', label='LMI (ours)', linewidth=line_thick, marker='.', markersize=4)
     plt.plot(samples, svd_avg_rmse, 'k--', label='SVD', linewidth=line_thick, marker='.', markersize=4)
     plt.plot(samples, nn_avg_rmse, 'b--', label='MLP', linewidth=line_thick, marker='.', markersize=4)
 
     plt.xlabel('Number of Samples')
     plt.ylabel('Average Validation \nRMSE (Nm)')
-    plt.legend(loc="upper right", shadow=True, fontsize="xx-small")
+    legend = plt.legend(loc="upper right", shadow=False, fontsize="x-small", facecolor="white", framealpha=1)
+    frame = legend.get_frame()
+    # frame.set_edgecolor('')
 
     # Plotting the shaded region (variance as rectangles)
-    plt.fill_between(samples, lmi_avg_rmse - lmi_std_rmse, lmi_avg_rmse + lmi_std_rmse, color='r', alpha=0.2, label='LMI Variance')
-    plt.fill_between(samples, svd_avg_rmse - svd_std_rmse, svd_avg_rmse + svd_std_rmse, color='k', alpha=0.2, label='SVD Variance')
-    plt.fill_between(samples, nn_avg_rmse - nn_std_rmse, nn_avg_rmse + nn_std_rmse, color='b', alpha=0.2, label='MLP Variance')
+    # plt.fill_between(samples, lmi_avg_rmse - lmi_std_rmse, lmi_avg_rmse + lmi_std_rmse, color='r', alpha=0.2, label='LMI Variance')
+    # plt.fill_between(samples, svd_avg_rmse - svd_std_rmse, svd_avg_rmse + svd_std_rmse, color='k', alpha=0.2, label='SVD Variance')
+    # plt.fill_between(samples, nn_avg_rmse - nn_std_rmse, nn_avg_rmse + nn_std_rmse, color='b', alpha=0.2, label='MLP Variance')
     
     # Logarithmic scale
     plt.xscale('log')
@@ -98,6 +100,7 @@ if __name__ == "__main__":
     # plt.tight_layout(pad=0.1)
     plt.subplots_adjust(left=0.16, bottom=0.21, right=0.97, top=0.94, wspace=0.19, hspace=0.1)
     plt.grid(True)# , which="both", ls="--")  # Grid for both major and minor ticks
+    # plt.tight_layout()
     plt.show()
     
     # Save as pgf files

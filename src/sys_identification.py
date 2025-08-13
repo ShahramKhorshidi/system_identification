@@ -285,12 +285,64 @@ class SystemIdentification(object):
                                 [I_xy, I_yy, I_yz],
                                 [I_xz, I_yz, I_zz]])
                 self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
-                    
+
+    def update_urdf_inertial_params(self, phi_ident, b_v, b_c):
+        # Creat a new URDF file based on identified inertial parameters
+        # Load the URDF model
+        robot = URDF.from_xml_file(self._urdf_path)
+
+        # Iterate over each link and update the inertial parameters
+        idx=0
+        for link in robot.links:
+            if link.name in self._link_names:
+                # Extract the inertial parameters of the link
+                mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi_ident[idx: idx+10]
+                com = np.array([h_x, h_y, h_z])/mass
+                I_bar = np.array([[I_xx, I_xy, I_xz],
+                                  [I_xy, I_yy, I_yz],
+                                  [I_xz, I_yz, I_zz]])
+                
+                # Update mass
+                link.inertial.mass = mass
+
+                # Update center of mass (com)
+                link.inertial.origin.xyz = com.tolist()
+                link.inertial.origin.rpy = [0.0, 0.0, 0.0]
+                
+                # Update inertia matrix
+                I_c = I_bar - (mass * pin.skew(com) @ pin.skew(com).T)
+                link.inertial.inertia.ixx = I_c[0, 0]
+                link.inertial.inertia.ixy = I_c[0, 1]
+                link.inertial.inertia.ixz = I_c[0, 2]
+                link.inertial.inertia.iyy = I_c[1, 1]
+                link.inertial.inertia.iyz = I_c[1, 2]
+                link.inertial.inertia.izz = I_c[2, 2]
+                
+                # Update index
+                idx += 10
+        
+        # Iterate over each joint and update its friction coeficients
+        idx = 0
+        for joint in robot.joints:
+            if joint.type == "revolute":
+                joint.dynamics.damping = b_v[idx]
+                joint.dynamics.friction = b_c[idx]
+                idx += 1
+        
+        # Save the updated URDF
+        new_urdf_path = self._urdf_path.replace(".urdf", "_updated.urdf")
+        with open(new_urdf_path, 'w') as f:
+            f.write(robot.to_xml_string())
+        print(f"Updated URDF saved at {new_urdf_path}")
+                   
     def get_robot_mass(self):
         return self._robot_mass
     
     def get_num_links(self):
         return self._num_links
+        
+    def get_num_dof(self):
+        return self.nv
     
     def get_bounding_ellipsoids(self):
         return self._bounding_ellipsoids

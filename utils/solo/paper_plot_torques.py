@@ -6,15 +6,15 @@ from mpl_toolkits.axes_grid1.inset_locator import mark_inset
 from matplotlib.ticker import MaxNLocator, FuncFormatter
 
 
-matplotlib.use("pgf")
-matplotlib.rcParams.update({
-    "pgf.texsystem": "pdflatex",
-    'font.family': 'serif',
-    'font.size' : 8,
-    'axes.unicode_minus' : False,
-    'text.usetex': True,
-    'pgf.rcfonts': False,
-})
+# matplotlib.use("pgf")
+# matplotlib.rcParams.update({
+#     "pgf.texsystem": "pdflatex",
+#     'font.family': 'serif',
+#     'font.size' : 8,
+#     'axes.unicode_minus' : False,
+#     'text.usetex': True,
+#     'pgf.rcfonts': False,
+# })
 
 def read_data(path, motion_name, start, end):
     tau_meas = np.loadtxt(path+"/data/solo/paper/"+f"{motion_name}_tau_meas.dat", delimiter='\t', dtype=np.float32).T[start:end, :]
@@ -42,9 +42,9 @@ def plot(i, leg_idx, tau_meas, tau_proj_lmi, tau_ped_nn, motion_name):
         axs[i,0].xaxis.set_ticklabels([])
     if i == 0:
         axs[i,0].set(ylabel='Validataion \nTorque (Nm)')
-        axs[i,0].get_xaxis().set_label_coords(0.5,0.95)
+        axs[i,0].get_xaxis().set_label_coords(0.5,0.9)
         axs[i,0].set_xlabel(leg+'-Hip Ab/Ad\n')
-        axs[i,0].legend(loc="upper right", shadow=True, fontsize="xx-small")
+        # axs[i,0].legend(loc="upper right", shadow=True, fontsize="xx-small")
         axs[i,0].xaxis.set_label_position('top')
     if i == 1:
         axs[i,0].set(ylabel='New Trot\nTorque (Nm)')
@@ -55,14 +55,28 @@ def plot(i, leg_idx, tau_meas, tau_proj_lmi, tau_ped_nn, motion_name):
         axs[i,0].get_xaxis().set_label_coords(0.5,-0.17)
 
     # ----------------------- Hip Flexion/Extension ----------------------- #
-    axs[i,1].plot(t, tau_meas[:, leg_idx+1], "#90EE90", label="Meas", linewidth=1.6)
-    axs[i,1].plot(t, tau_proj_lmi[:, leg_idx+1], "r--", label="LMI", linewidth=line_thick)
+    axs[i,1].plot(t, tau_meas[:, leg_idx+1], "#90EE90", label="Measured", linewidth=1.6)
+    axs[i,1].plot(t, tau_proj_lmi[:, leg_idx+1], "r--", label="LMI (ours)", linewidth=line_thick)
     axs[i,1].plot(t, tau_proj_llsq[:, leg_idx+1], "k--", label="SVD", linewidth=line_thick)
-    axs[i,1].plot(t, tau_ped_nn[:, leg_idx+1], "b--", label="NN", linewidth=line_thick)
+    axs[i,1].plot(t, tau_ped_nn[:, leg_idx+1], "b--", label="MLP", linewidth=line_thick)
     if i < 2:
         axs[i,1].xaxis.set_ticklabels([])
     if i == 0:
-        axs[i,1].get_xaxis().set_label_coords(0.5,0.95)  
+        axs[i,1].legend(
+            loc="upper right", 
+            shadow=False, 
+            fontsize="x-small", 
+            bbox_to_anchor=(1.02, 0.45), 
+            facecolor="white", 
+            framealpha=1,
+            # handlelength=1,      # Length of the legend handles (symbols)
+            # handletextpad=0.5,   # Space between the legend handle and text
+            # borderaxespad=0.1,   # Padding between the legend and the axes
+            # borderpad=0.1,        # Padding inside the legend box
+            labelspacing=0.1,    # Spacing between labels
+            columnspacing=1.0 
+        )
+        axs[i,1].get_xaxis().set_label_coords(0.5,0.9)  
         axs[i,1].xaxis.set_label_position('top')
         axs[i,1].set_xlabel(leg+'-Hip Fl/Ex\n')
     if i == 2:
@@ -72,13 +86,13 @@ def plot(i, leg_idx, tau_meas, tau_proj_lmi, tau_ped_nn, motion_name):
 
     # # ----------------------- Knee Flexion/Extension ----------------------- #
     axs[i,2].plot(t, tau_meas[:, leg_idx+2], "#90EE90", label="Meas", linewidth=1.6)
-    axs[i,2].plot(t, tau_proj_lmi[:, leg_idx+2], "r--", linestyle="--", label="LMI", linewidth=line_thick)
+    axs[i,2].plot(t, tau_proj_lmi[:, leg_idx+2], "r--", linestyle="--", label="LMI (ours)", linewidth=line_thick)
     axs[i,2].plot(t, tau_proj_llsq[:, leg_idx+2], "k--", label="SVD", linewidth=line_thick)
     axs[i,2].plot(t, tau_ped_nn[:, leg_idx+2], "b--", label="NN", linewidth=line_thick)
     if i < 2:
         axs[i,2].xaxis.set_ticklabels([])
     if i == 0:
-        axs[i,2].get_xaxis().set_label_coords(0.5,0.95)    
+        axs[i,2].get_xaxis().set_label_coords(0.5,0.9)    
         axs[i,2].xaxis.set_label_position('top')
         axs[i,2].set_xlabel(leg+'-Knee Fl/Ex\n')
     if i == 2:
@@ -128,10 +142,10 @@ if __name__ == "__main__":
     plot(2, 0, tau_meas, tau_proj_lmi, tau_ped_nn, motion_name)
     
     # Show the plot
-    fig.set_size_inches(w=7.05, h=3.8)
+    fig.set_size_inches(w=7.05, h=2.95)
     fig.tight_layout(pad=0.1)
     plt.subplots_adjust(left=0.09, bottom=0.08, right=0.99, top=0.95, wspace=0.19, hspace=0.1)
     plt.show()
 
     # Save as pgf files
-    plt.savefig("/home/khorshidi/Documents/3_Papers-Conferences/2024_09_ICRA/files/"+"solo_fl_torque.pgf")
+    # plt.savefig("/home/khorshidi/Documents/3_Papers-Conferences/2024_09_ICRA/files/"+"solo_fl_torque.pgf")
