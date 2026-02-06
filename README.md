@@ -1,4 +1,4 @@
-# system_identification
+# System_Identification
 **Physically-Consistent Parameter Identification of Robots in Contact.**
 
 This repository provides an offline system identification pipeline to estimate **physically-consistent inertial parameters** of legged robots from joint torque measurements. The main focus is to deal with contact rich legged robots and guarantee *physical feasibility* of the identified parameters (e.g., positive-definite rotational inertia, valid mass and COM relationships), which is essential for stable simulation, control, and downstream estimation.
@@ -40,7 +40,6 @@ git clone https://github.com/ShahramKhorshidi/system_identification.git
 cd system_identification
 ```
 
-
 ### (2) Create the conda environment
 Using the provided environment file:
 ```
@@ -65,6 +64,20 @@ Check the demo/ folder for example scripts/notebooks. Typical workflow:
 - Load a robot model (URDF + meshes) via Pinocchio
 - Load trajectories / torque measurements
 - Run either:
-- LMI/SDP solver (physically-consistent via convex constraints)
-- NLS log-Cholesky solver (physically-consistent via parameterization)
+    - LMI/SDP solver (physically-consistent via convex constraints)
+    - NLS log-Cholesky solver (physically-consistent via parameterization)
 - Export identified parameters and evaluate reconstruction error / residuals
+
+---
+
+## Citation
+
+If you use this repository in academic work, please cite the following work:
+```
+@inproceedings{khorshidi25icra,
+  title={Physically-Consistent Parameter Identification of Robots in Contact}, 
+  author={Khorshidi, Shahram and Dawood, Murad and Nederkorn, Benno and Bennewitz, Maren and Khadiv, Majid},
+  booktitle={Proc. of the IEEE International Conference on Robotics and Automation (ICRA)}, 
+  year={2025}
+}
+```
