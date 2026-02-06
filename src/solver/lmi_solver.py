@@ -2,7 +2,7 @@ import numpy as np
 import cvxpy as cp
 
 
-class Solver():
+class LMISolver():
     def __init__(self, regressor, tau_vec, num_links, phi_prior, total_mass, bounding_ellipsoids, B_v=None, B_c=None):
         self._Y = regressor
         self._tau = tau_vec
@@ -10,7 +10,6 @@ class Solver():
         self._num_samples = self._Y.shape[0]
         self._num_links = num_links
         self._num_inertial_params = self._Y.shape[1] // self._num_links
-        
         self._phi_prior = phi_prior  # Prior inertial parameters
         self.total_mass = total_mass
         self._bounding_ellipsoids = bounding_ellipsoids
@@ -21,27 +20,17 @@ class Solver():
         if self._identify_fric:
             self._B_v = B_v
             self._B_c = B_c
-            self.ndof = B_v.shape[1]
-            self._b_v = cp.Variable(self.ndof) # Viscous friction coefficient (Nm / (rad/s))
-            self._b_c = cp.Variable(self.ndof) # Coulomb friction coefficient (Nm)
+            self.num_joints = B_v.shape[1] # number of actuated joints
+            self._b_v = cp.Variable(self.num_joints) # Viscous friction coefficient (Nm / (rad/s))
+            self._b_c = cp.Variable(self.num_joints) # Coulomb friction coefficient (Nm)
         self._objective = None
         self._constraints = []
         self._problem = None
-    
-    # -------------- Unconstrained Solver -------------- #
-    def solve_llsq_svd(self):        
-        """
-        Solve llsq using Singular Value Decomposition (SVD).
-        """
-        U, Sigma, VT = np.linalg.svd(self._Y, full_matrices=False)
-        Sigma_inv = np.linalg.pinv(np.diag(Sigma))
-        A_psudo = VT.T @ Sigma_inv @ U.T
-        return A_psudo@self._tau
 
-    # ------------ Constrained Solver (LMI) ------------ #
+    # -------------------- Internal methods -------------------- #
     def _construct_spatial_body_inertia_matrix(self, phi):
         # Retunrs the spatial body inertia matrix (S:6x6) as a cvxpy expression
-        m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
+        m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
         S = cp.vstack([
             cp.hstack([I_xx, I_xy, I_xz, 0   , -h_z, h_y ]),
             cp.hstack([I_xy, I_yy, I_yz, h_z , 0   , -h_x]),
@@ -54,7 +43,7 @@ class Solver():
         
     def _construct_pseudo_inertia_matrix(self, phi):
         # Retunrs the pseudo inertia matrix (J:4x4) as a cvxpy expression
-        mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
+        mass, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
         trace = (1/2) * (I_xx + I_yy + I_zz)
         pseudo_inertia_matrix = cp.vstack([
             cp.hstack([trace-I_xx, -I_xy     , -I_xz     , h_x ]),
@@ -68,7 +57,7 @@ class Solver():
         # Returns the bounding ellipsoid matrix (Q:4x4) as a numpy array
         Q_full = np.zeros((4,4), dtype=np.float32)
         Q = np.linalg.inv(np.diag(semi_axes)**2)
-        Q_full[:3, :3] = Q
+        Q_full[:3, :3] = -Q
         Q_full[:3, 3] = Q @ center
         Q_full[3, :3] = (Q @ center).T
         Q_full[3, 3] = 1 - (center.T @ Q @ center)
@@ -120,7 +109,17 @@ class Solver():
         assert min_eigenvalue > 0, f"Matrix is not positive definite. Minimum eigenvalue: {min_eigenvalue}"
         return M
     
-    def solve_fully_consistent(self, lambda_reg=1e-1, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
+    # -------------------- API -------------------- #
+    def solve_llsq_svd(self):        
+        """
+        Solve llsq using Singular Value Decomposition (SVD).
+        """
+        U, Sigma, VT = np.linalg.svd(self._Y, full_matrices=False)
+        Sigma_inv = np.linalg.pinv(np.diag(Sigma))
+        A_psudo = VT.T @ Sigma_inv @ U.T
+        return A_psudo@self._tau
+    
+    def solve_fully_consistent(self, lambda_reg=1e-4, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
         """
         Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
@@ -130,14 +129,14 @@ class Solver():
         
         # Iterating over the robot links
         for idx in range(0, self._num_links):
-            # Extracting the inertial parameters of the link idx (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
+            # Extracting the inertial parameters of the link idx
             j = idx * self._num_inertial_params
             phi_idx = self._phi[j: j+self._num_inertial_params]
             phi_prior_idx = self._phi_prior[j: j+self._num_inertial_params]
             ellipsoid_params_idx = self._bounding_ellipsoids[idx]
             
             # Mass constraint
-            self._constraints.append(phi_idx[0] >= 0)
+            # self._constraints.append(phi_idx[0] >= 0)
             mass_sum += phi_idx[0]
             
             # Compute pseudo inertia matrix (J:4x4) and add the constraint
@@ -204,7 +203,20 @@ class Solver():
             print(e)
         
         if self._problem.status == cp.OPTIMAL or self._problem.status == cp.OPTIMAL_INACCURATE:
-            return self._phi.value
+            print("########################################")
+            # Optimal value of the objective function
+            print("Optimal value:", self._problem.value)
+            # Solver-specific information
+            solver_info = self._problem.solver_stats
+            print("Solver time (seconds):", solver_info.solve_time)
+            print("Setup time (seconds):", solver_info.setup_time)
+            print("Number of iterations:", solver_info.num_iters)
+            print("########################################")
+            # Return the value of the decision variables
+            if self._identify_fric:
+                return self._phi.value, self._b_v.value, self._b_c.value
+            else:
+                return self._phi.value
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")
