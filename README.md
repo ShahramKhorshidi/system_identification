@@ -44,7 +44,7 @@ cd system_identification
 Using the provided environment file:
 ```
 conda env create -f environment.yml
-conda activate system_identification
+conda activate sys_idn
 ```
 
 ### (3) Installing MOSEK (required for the LMI/SDP solver)
@@ -67,6 +67,13 @@ Check the demo/ folder for example scripts/notebooks. Typical workflow:
     - LMI/SDP solver (physically-consistent via convex constraints)
     - NLS log-Cholesky solver (physically-consistent via parameterization)
 - Export identified parameters and evaluate reconstruction error / residuals
+
+```
+python demo/run_identification.py --robot spot --solver lmi
+python demo/run_identification.py --robot spot --solver nls
+```
+
+The data from Spot quadruped includes 24,000 samples of the robot performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
 
 ---
 
