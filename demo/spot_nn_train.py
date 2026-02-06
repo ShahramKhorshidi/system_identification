@@ -1,9 +1,9 @@
 import torch
 import numpy as np
 import os, copy, errno
-from src.PAR_EST import ESTIMATOR
+from src.solver.nn_toque_estimator import ESTIMATOR
 import datetime
-from src.PAR_EST import HID_DIM, LR
+from src.solver.nn_toque_estimator import HID_DIM, LR
 
 NETS = "estimator"
 seed = 3407

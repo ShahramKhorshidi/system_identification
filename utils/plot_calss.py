@@ -111,15 +111,15 @@ class PlotClass():
             idx = i * num_params_per_link
             I_xx_actual.append(self._phi_prior[idx + 4])
             I_xy_actual.append(self._phi_prior[idx + 5])
-            I_xz_actual.append(self._phi_prior[idx + 6])
-            I_yy_actual.append(self._phi_prior[idx + 7])
+            I_yy_actual.append(self._phi_prior[idx + 6])
+            I_xz_actual.append(self._phi_prior[idx + 7])
             I_yz_actual.append(self._phi_prior[idx + 8])
             I_zz_actual.append(self._phi_prior[idx + 9])
                     
             I_xx_predicted.append(phi_ident[idx + 4])
             I_xy_predicted.append(phi_ident[idx + 5])
-            I_xz_predicted.append(phi_ident[idx + 6])
-            I_yy_predicted.append(phi_ident[idx + 7])
+            I_yy_predicted.append(phi_ident[idx + 6])
+            I_xz_predicted.append(phi_ident[idx + 7])
             I_yz_predicted.append(phi_ident[idx + 8])
             I_zz_predicted.append(phi_ident[idx + 9])
             
@@ -191,8 +191,11 @@ class PlotClass():
         tau_nn_proj = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            pred, meas = sys_idnt.calculate_predicted_torque(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi)
-            tau_nn_proj.append(meas[6:])
+            sys_idnt.update_fk(q[:, i], dq[:, i], ddq[:, i])
+            Y = sys_idnt.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+            P = sys_idnt.get_null_space_proj(cnt[:, i])
+            tau_meas = P @ sys_idnt.S.T @ torque[:, i]
+            tau_nn_proj.append(tau_meas[6:])
         
         tau_nn_proj = np.vstack(tau_nn_proj)
         return tau_nn_proj
@@ -202,10 +205,16 @@ class PlotClass():
         measured = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            pred, meas = sys_idnt.calculate_predicted_torque(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi)
-            predicted.append(pred[6:])
-            measured.append(meas[6:])
-        
+            sys_idnt.update_fk(q[:, i], dq[:, i], ddq[:, i])
+            Y = sys_idnt.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+            P = sys_idnt.get_null_space_proj(cnt[:, i])
+            tau_pred = P @ (Y @ phi 
+                            - sys_idnt.S.T @ (np.diag(b_v) @ dq[sys_idnt.base_dof:, i] 
+                            + np.diag(b_c) @ np.sign(dq[sys_idnt.base_dof:, i])))
+            tau_meas = P @ sys_idnt.S.T @ torque[:, i]
+            predicted.append(tau_pred[6:])
+            measured.append(tau_meas[6:])
+
         predicted = np.vstack(predicted)
         measured = np.vstack(measured)
         
@@ -250,9 +259,15 @@ class PlotClass():
         measured = []
         # For each data ponit we calculate the rgeressor and torque vector, and stack them
         for i in range(q.shape[1]):
-            pred, meas = sys_idnt.calculate_predicted_torque_solo(q[:, i], dq[:, i], ddq[:, i], cnt[:, i], torque[:, i], b_v, b_c, phi, force[:, i])
-            predicted.append(pred[6:])
-            measured.append(meas[6:])
+            sys_idnt.update_fk(q[:, i], dq[:, i], ddq[:, i])
+            Y = sys_idnt.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+            tau_pred = (Y @ phi 
+                        - sys_idnt.S.T @ (np.diag(b_v) @ dq[sys_idnt.base_dof:, i] 
+                        + np.diag(b_c) @ np.sign(dq[sys_idnt.base_dof:, i])))
+            F = sys_idnt.get_cnt_force(force[:, i], cnt[:, i])
+            tau_pred -= F
+            predicted.append(tau_pred[6:])
+            measured.append(torque[:, i])
         
         predicted = np.vstack(predicted)
         measured = np.vstack(measured)

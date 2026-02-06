@@ -1,7 +1,7 @@
 import os
 import torch
 import numpy as np
-from src.PAR_EST import ESTIMATOR
+from src.solver.nn_toque_estimator import ESTIMATOR
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 import scipy.signal as signal
 from src.sys_identification import SystemIdentification

@@ -50,7 +50,7 @@ if __name__ == "__main__":
     sys_idnt.print_inertial_params(phi_prior, phi_proj_lmi)
     
     # Save new URDF file with identified parameters
-    sys_idnt.update_urdf_inertial_params(phi_proj_llsq, b_v, b_c)
+    # sys_idnt.build_updated_urdf(phi_proj_llsq, b_v, b_c)
     
     # Plot physical consistency
     plotter = PlotClass(phi_prior)

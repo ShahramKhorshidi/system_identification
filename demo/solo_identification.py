@@ -2,8 +2,8 @@ import os
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
-from src.solver import Solver
-from src.sys_identification import SystemIdentification
+from src.solver.lmi_solver import LMISolver
+from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
 
 
 def read_data(path, motion_name, filter_type):
@@ -41,46 +41,51 @@ def read_data(path, motion_name, filter_type):
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_ee_force, robot_contact
 
 # Calculates the regressor and full force/torque vector
-def get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt):
+def get_full_y_f(q, dq, ddq, torque, force, cnt, quad_dyn):
     Y = []
     F = []
     # For each data ponit we calculate the rgeressor and force/torque vector, and stack them
     for i in range(q.shape[1]):
-        y, f = sys_idnt.get_full_regressor_force(q[:, i], dq[:, i], ddq[:, i], torque[:, i], force[:, i], cnt[:, i])
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+        f = quad_dyn.get_gen_force(torque[:, i], force[:, i], cnt[:, i])
         Y.append(y)
         F.append(f)
     return Y, F
 
 # Calculates the regressor and torque vector projected into the null space of contact for all data points
-def get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt):
+def get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     Y = []
     Tau = []
-    tau_proj = np.zeros((12, q.shape[1]), dtype=np.float32)
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
-        y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-        Y.append(y)
-        Tau.append(tau)
-        tau_proj[:, i] = tau[6:]
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+        P = quad_dyn.get_null_space_proj(cnt[:, i])
+        Y.append(P @ y)
+        Tau.append(P @ quad_dyn.S.T @ torque[:, i])
     return Y, Tau
 
 # Calculates the friction regressors (B_v and B_c) projected into the null space of contact for all data points
-def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
+def get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn):
     B_v = []
     B_c = []
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
-        b_v, b_c = sys_idnt.get_proj_friction_regressors(q[:, i], dq[:, i], ddq[:, i], cnt[:, i])
-        B_v.append(b_v)
-        B_c.append(b_c)
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        b_v, b_c = quad_dyn.get_friction_regressors(dq[:, i])
+        P = quad_dyn.get_null_space_proj(cnt[:, i])
+        B_v.append(P @ b_v)
+        B_c.append(P @ b_c)
     return B_v, B_c
 
-def get_full_friction_regressors(q, dq, ddq, cnt, sys_idnt):
+def get_friction_regressors(q, dq, ddq, cnt, quad_dyn):
     B_v = []
     B_c = []
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
-        b_v, b_c = sys_idnt.get_friction_regressors(q[:, i], dq[:, i], ddq[:, i], cnt[:, i])
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        b_v, b_c = quad_dyn.get_friction_regressors(dq[:, i])
         B_v.append(b_v)
         B_c.append(b_c)
     return B_v, B_c
@@ -95,27 +100,27 @@ def main():
     robot_config = path+"/files/solo_description/"+"solo12_config.yaml"
     
     # Instantiate the identification problem
-    sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
+    quad_dyn = QuadrupedDynamics(robot_urdf, robot_config)
     
-    total_mass = sys_idnt.get_robot_mass()
-    num_of_links = sys_idnt.get_num_links()
+    total_mass = quad_dyn.get_robot_mass()
+    num_of_links = quad_dyn.get_num_links()
     
     # Prior values for the inertial parameters
-    phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"/data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
-    phi_prior = np.loadtxt(path+"/data/solo/solo_phi_prior_I_c.dat", delimiter='\t', dtype=np.float32)
+    phi_nominal = quad_dyn.get_phi_nom()
+    # np.savetxt(path+"/data/solo/"+"solo_phi_prior.dat", phi_prior, delimiter='\t')
+    phi_nominal = np.loadtxt(path+"/data/solo/solo_phi_prior_I_c.dat", delimiter='\t', dtype=np.float32)
     
     # Bounding ellipsoids
-    bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
+    bounding_ellipsoids = quad_dyn.get_bounding_ellipsoids()
     
     # -------- Using full force/torque sensing -------- #
-    Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, sys_idnt)
-    B_v, B_c = get_full_friction_regressors(q, dq, ddq, cnt, sys_idnt)
+    Y, Force = get_full_y_f(q, dq, ddq, torque, force, cnt, quad_dyn)
+    B_v, B_c = get_friction_regressors(q, dq, ddq, cnt, quad_dyn)
     Y = np.vstack(Y)
     Force = np.hstack(Force)
     B_v = np.vstack(B_v)
     B_c = np.vstack(B_c)
-    solver_full = Solver(Y, Force, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
+    solver_full = LMISolver(Y, Force, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
 
     phi_full_llsq = solver_full.solve_llsq_svd()
     np.savetxt(path+"/data/solo/"+motion_name+"_phi_full_llsq.dat", phi_full_llsq, delimiter='\t')
@@ -126,13 +131,13 @@ def main():
     np.savetxt(path+"/data/solo/"+motion_name+"_b_c.dat", b_c, delimiter='\t')
     
     # -------- Using Null space projection -------- #
-    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
-    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt)
+    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn)
+    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
     Y_proj = np.vstack(Y_proj)
     tau_proj = np.hstack(tau_proj)
     B_v_proj = np.vstack(B_v_proj)
     B_c_proj = np.vstack(B_c_proj)
-    solver_proj = Solver(Y_proj, tau_proj, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v_proj, B_c=B_c_proj)
+    solver_proj = LMISolver(Y_proj, tau_proj, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v_proj, B_c=B_c_proj)
     
     phi_proj_llsq = solver_proj.solve_llsq_svd()
     np.savetxt(path+"/data/solo/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')

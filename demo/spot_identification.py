@@ -2,8 +2,8 @@ import os
 import numpy as np
 import scipy.signal as signal
 from scipy.signal import savgol_filter
-from src.solver import Solver
-from src.sys_identification import SystemIdentification
+from src.solver.lmi_solver import LMISolver
+from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
 
 
 def read_data(path, motion_name, filter_type):
@@ -34,25 +34,29 @@ def read_data(path, motion_name, filter_type):
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
 # Calculates the regressor and torque vector projected into the null space of contact for all data points
-def get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt):
+def get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     Y = []
     Tau = []
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
-        y, tau = sys_idnt.get_proj_regressor_torque(q[:, i], dq[:, i], ddq[:, i], torque[:, i], cnt[:, i])
-        Y.append(y)
-        Tau.append(tau)
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+        P = quad_dyn.get_null_space_proj(cnt[:, i])
+        Y.append(P @ y)
+        Tau.append(P @ quad_dyn.S.T @ torque[:, i])
     return Y, Tau
 
 # Calculates the friction regressors (B_v and B_c) projected into the null space of contact for all data points
-def get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt):
+def get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn):
     B_v = []
     B_c = []
     # For each data ponit we calculate the rgeressor and torque vector, and stack them
     for i in range(q.shape[1]):
-        b_v, b_c = sys_idnt.get_proj_friction_regressors(q[:, i], dq[:, i], ddq[:, i], cnt[:, i])
-        B_v.append(b_v)
-        B_c.append(b_c)
+        quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
+        b_v, b_c = quad_dyn.get_friction_regressors(dq[:, i])
+        P = quad_dyn.get_null_space_proj(cnt[:, i])
+        B_v.append(P @ b_v)
+        B_c.append(P @ b_c)
     return B_v, B_c
 
 def main():
@@ -62,35 +66,36 @@ def main():
     motion_name = "spot"
     filter_type = "butterworth" # savitzky or butterworth
     q, dq, ddq, torque, cnt = read_data(path+"/data/spot/", motion_name, filter_type)
+    print(path)
     robot_urdf = path+"/files/spot_description/"+"spot.urdf"
     robot_config = path+"/files/spot_description/"+"spot_config.yaml"
     
-    # Instantiate the identification problem
-    sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
+    # Instantiate the quadruped dynamics and system identification objects
+    quad_dyn = QuadrupedDynamics(robot_urdf, robot_config)
     
-    total_mass = sys_idnt.get_robot_mass()
-    num_of_links = sys_idnt.get_num_links()
+    total_mass = quad_dyn.get_robot_mass()
+    num_of_links = quad_dyn.get_num_links()
     
     # Prior values for the inertial parameters
-    phi_prior = sys_idnt.get_phi_prior()
-    np.savetxt(path+"/data/spot/"+"spot_phi_prior.dat", phi_prior, delimiter='\t')
+    phi_nominal = quad_dyn.get_phi_nom()
+    np.savetxt(path+"/data/spot/"+"spot_phi_prior.dat", phi_nominal, delimiter='\t')
     
     # Bounding ellipsoids
-    bounding_ellipsoids = sys_idnt.get_bounding_ellipsoids()
+    bounding_ellipsoids = quad_dyn.get_bounding_ellipsoids()
     
     # -------- Using Null space projection -------- #
-    Y_proj, Tau = get_projected_y_tau(q, dq, ddq, torque, cnt, sys_idnt)
-    B_v, B_c = get_projected_friction_regressors(q, dq, ddq, cnt, sys_idnt)
+    Y_proj, Tau = get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn)
+    B_v, B_c = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
     Y_proj = np.vstack(Y_proj)
     Tau = np.hstack(Tau)
     B_v = np.vstack(B_v)
     B_c = np.vstack(B_c)
-    solver_proj = Solver(Y_proj, Tau, num_of_links, phi_prior, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
+    lmi_solver = LMISolver(Y_proj, Tau, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c)
     
-    phi_proj_llsq = solver_proj.solve_llsq_svd()
+    phi_proj_llsq = lmi_solver.solve_llsq_svd()
     np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_llsq.dat", phi_proj_llsq, delimiter='\t')
     
-    phi_proj_lmi, b_v, b_c = solver_proj.solve_fully_consistent()
+    phi_proj_lmi, b_v, b_c = lmi_solver.solve_fully_consistent(lambda_reg=1e-3)
     np.savetxt(path+"/data/spot/"+motion_name+"_phi_proj_lmi.dat", phi_proj_lmi, delimiter='\t')
     np.savetxt(path+"/data/spot/"+motion_name+"_b_v.dat", b_v, delimiter='\t')
     np.savetxt(path+"/data/spot/"+motion_name+"_b_c.dat", b_c, delimiter='\t')

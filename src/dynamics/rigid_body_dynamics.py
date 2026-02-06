@@ -4,29 +4,26 @@ import trimesh
 import numpy as np
 import pinocchio as pin
 from numpy.linalg import pinv
+from abc import ABC, abstractmethod
 from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
-
-class SystemIdentification(object):
-    def __init__(self, urdf_file, config_file, floating_base):
-        self._urdf_path = urdf_file
+class RigidBodyDynamics(ABC):
+    def __init__(self, urdf_file: str, config_file: str, floating_base: bool, info: bool = False):
+        self.urdf_path = urdf_file
         # Create robot model and data
-        self._floating_base = floating_base
-        if self._floating_base:
-            self._rmodel = pin.buildModelFromUrdf(self._urdf_path, pin.JointModelFreeFlyer())
+        self.floating_base = floating_base
+        if self.floating_base:
+            self.rmodel = pin.buildModelFromUrdf(self.urdf_path, pin.JointModelFreeFlyer())
         else:
-            self._rmodel = pin.buildModelFromUrdf(self._urdf_path)
-        self._rdata = self._rmodel.createData()
+            self.rmodel = pin.buildModelFromUrdf(self.urdf_path)
+        self.rdata = self.rmodel.createData()
         
-        # Set the gravity vector
-        self._g = self._rmodel.gravity.linear
-
-        # Dimensions of robot configuration space and velocity vector
-        self.nq = self._rmodel.nq
-        self.nv = self._rmodel.nv
+        self.g = self.rmodel.gravity.linear
+        self.nq = self.rmodel.nq
+        self.nv = self.rmodel.nv
         
         # Selection matrix
-        if floating_base:
+        if self.floating_base:
             self.base_dof = 6
             self.joints_dof = self.nv - self.base_dof
             self.S = np.zeros((self.joints_dof, self.nv))
@@ -40,28 +37,27 @@ class SystemIdentification(object):
         with open(config_file, 'r') as file:
             config = yaml.safe_load(file)
         robot_config = config.get('robot', {})
-        self._robot_name = robot_config.get('name')
-        self._robot_mass = robot_config.get('mass')
-        
+        self.robot_name = robot_config.get('name')
+        self.robot_mass = robot_config.get('mass')
+
         # List of link names
-        self._link_names = robot_config.get('link_names', [])
+        self.link_names = robot_config.get('link_names', [])
         
         # List of end_effector names
-        self._end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
-        self._endeff_ids = [
-            self._rmodel.getFrameId(name)
-            for name in self._end_eff_frame_names
+        self.end_eff_frame_names = robot_config.get('end_effectors_frame_names', [])
+        self.endeff_ids = [
+            self.rmodel.getFrameId(name)
+            for name in self.end_eff_frame_names
         ]
-        self._nb_ee = len(self._end_eff_frame_names)
+        self.nb_ee = len(self.end_eff_frame_names)
         
         # Initialize the regressor matrix with proper dimension
-        # inertial parameters for each link, Pinocchio order:
-        # phi = [m, h_x, h_y, h_z, Ixx, Ixy, Iyy, Ixz, Iyz, Izz] --> Y_reg @ Phi = tau_rnea
-        self._num_inertial_params = 10
-        self._num_links = self._rmodel.njoints - 1
-        self._phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float32)
-        self._Y = np.zeros((self.nv, self._num_inertial_params * self._num_links), dtype=np.float32)
-        
+        # Inertial parameters for each link with Pinocchio order:
+        # phi = [m, h_x, h_y, h_z, Ixx, Ixy, Iyy, Ixz, Iyz, Izz]
+        self.phi_dim = 10
+        self.num_links = self.rmodel.njoints - 1
+        self.Y = np.zeros((self.nv, self.phi_dim * self.num_links), dtype=np.float64)
+
         # Initialize the friction regressors
         self.B_v = np.eye(self.joints_dof) # Viscous friction
         self.B_c = np.eye(self.joints_dof) # Coulomb friction
@@ -72,83 +68,192 @@ class SystemIdentification(object):
             [np.zeros((3,3)), np.eye(3)],
             [np.eye(3),       np.zeros((3,3))]
         ])
-        
+
         # Initialization
         self._compute_bounding_ellipsoids()
         self._init_motion_subspace_dict()
-        self._compute_phi_prior_pin()
-        self._show_kinematic_tree()
-    
+        self._compute_phi_nom_pin()
+        self._init_com_frames()
+        if info:
+            self._show_kinematic_tree()
+
+    # -------------------- Internal methods -------------------- #    
     def _show_kinematic_tree(self):
-        print("##### Kinematic Tree #####")
-        for i in range(1, self._rmodel.njoints):
-            joint_name = self._rmodel.names[i]
-            joint_id = self._rmodel.getJointId(joint_name)
-            joint_type = self._rmodel.joints[i].shortname()
-            parent_joint_id = self._rmodel.parents[joint_id]
-            parent_joint_name = self._rmodel.names[parent_joint_id]
-            print(f"Name:{joint_name},id=[{joint_id}],type:{joint_type} -- Parent:{parent_joint_name},id=[{parent_joint_id}]")
-            print(self._rmodel.inertias[i], "\n") # mass, lever, inertia (around CoM)
-    
+        print("-"*20," Kinematic Tree ","-"*20)
+        for i in range(1, self.rmodel.njoints):
+            joint_name = self.rmodel.names[i]
+            joint_id = self.rmodel.getJointId(joint_name)
+            joint_type = self.rmodel.joints[i].shortname()
+            parent_joint_id = self.rmodel.parents[joint_id]
+            parent_joint_name = self.rmodel.names[parent_joint_id]
+            print(f"Name:{joint_name},\id=[{joint_id}],type:{joint_type} -- Parent:{parent_joint_name},id=[{parent_joint_id}]")
+            print(self.rmodel.inertias[i], "\n") # mass, lever, inertia (around CoM)
+            
     def _init_motion_subspace_dict(self):
         # Create a dictionary of the motion subspace matrices of all the joints.
         # Featherstone/Pinocchio store angular on top, linear on bottom for motion vectors [w; v]
-        self._motion_subspace = dict()
-        for i in range(1, self._rmodel.njoints):
-            joint = self._rmodel.joints[i]
+        self.motion_subspace = dict()
+        for i in range(1, self.rmodel.njoints):
+            joint = self.rmodel.joints[i]
             joint_type = joint.shortname()
             if joint_type == "JointModelFreeFlyer":
                 # In Pinocchio the free-flyer joint’s generalized velocity is ordered [v; w]
-                self._motion_subspace[i] = np.block([
+                self.motion_subspace[i] = np.block([
                     [np.zeros((3,3)), np.eye(3)],
                     [np.eye(3),       np.zeros((3,3))]
                 ])
             elif joint_type == "JointModelRX":
-                self._motion_subspace[i] = np.array([1, 0, 0, 0, 0, 0])
+                self.motion_subspace[i] = np.array([1, 0, 0, 0, 0, 0])
             elif joint_type == "JointModelRY":
-                self._motion_subspace[i] = np.array([0, 1, 0, 0, 0, 0])
+                self.motion_subspace[i] = np.array([0, 1, 0, 0, 0, 0])
             elif joint_type == "JointModelRZ":
-                self._motion_subspace[i] = np.array([0, 0, 1, 0, 0, 0])
+                self.motion_subspace[i] = np.array([0, 0, 1, 0, 0, 0])
             elif joint_type == "JointModelPX":
-                self._motion_subspace[i] = np.array([0, 0, 0, 1, 0, 0])
+                self.motion_subspace[i] = np.array([0, 0, 0, 1, 0, 0])
             elif joint_type == "JointModelPY":
-                self._motion_subspace[i] = np.array([0, 0, 0, 0, 1, 0])
+                self.motion_subspace[i] = np.array([0, 0, 0, 0, 1, 0])
             elif joint_type == "JointModelPZ":
-                self._motion_subspace[i] = np.array([0, 0, 0, 0, 0, 1])
+                self.motion_subspace[i] = np.array([0, 0, 0, 0, 0, 1])
             else:
                 # Extend here for other joint types (spherical, planar, etc.)
                 raise NotImplementedError(f"Joint type {joint_type} not handled in S_i.")
+
+    def _init_com_frames(self):
+        """
+        For each joint j, create a Pinocchio frame located at the link's COM
+        (given by model.inertias[j].lever) and store its frame id.
+        """
+        self.com_frame_ids = []
+
+        for j in range(1, self.rmodel.njoints):
+            joint_name = self.rmodel.names[j]
+            inertia = self.rmodel.inertias[j]
+            com_offset = inertia.lever.copy()  # 3D vector in joint frame
+
+            # Placement of COM relative to joint frame: rotation=I, translation=com_offset
+            placement = pin.SE3(np.eye(3), com_offset)
+
+            # We attach the frame to joint j, and choose the joint's frame as parent frame.
+            # parentFrame = frame of the joint itself:
+            parent_frame_id = self.rmodel.getFrameId(joint_name)
+
+            frame_name = joint_name + "_COM"
+            frame = pin.Frame(
+                frame_name,
+                j,                # parentJoint
+                parent_frame_id,  # parentFrame
+                placement,
+                pin.BODY
+            )
+            fid = self.rmodel.addFrame(frame)
+            self.com_frame_ids.append(fid)
+
+    def _compute_phi_nom_pin(self):
+        # Compute the nominal inertial parameters using Pinocchio's internal representation
+        self.phi_nom = np.zeros(self.phi_dim * self.num_links, dtype=np.float64)
+        for jid in range(1, self.rmodel.njoints):
+            self.phi_nom[10*(jid-1):10*jid] = self.rmodel.inertias[jid].toDynamicParameters()
+
+    def _compute_inertial_params(self):
+        # Compute the inertial parameters for each link from URDF
+        # The CoM is expressed in the body farme about the joint origin
+        # The inertia matrix is expressed about the CoM frame
+        self.inertial_params = []
+        robot = URDF.from_xml_file(self.urdf_path)
+        for link in robot.links:
+            if link.name in self.link_names:
+                m = link.inertial.mass
+                com = np.array(link.inertial.origin.xyz)
+                rpy = np.array(link.inertial.origin.rpy)
+                I_xx = link.inertial.inertia.ixx
+                I_xy = link.inertial.inertia.ixy
+                I_xz = link.inertial.inertia.ixz
+                I_yy = link.inertial.inertia.iyy
+                I_yz = link.inertial.inertia.iyz
+                I_zz = link.inertial.inertia.izz
+                I_c = np.array([[I_xx, I_xy, I_xz],
+                                [I_xy, I_yy, I_yz],
+                                [I_xz, I_yz, I_zz]])
+                self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
+
+    def _compute_phi_nom_urdf(self):
+        # Compute the nominal inertial parameters vector phi_nom (size=10*num_link); using the URDF file
+        # The inertial parameters of each link is expressed w.r.t the body_frame at the joint origin
+        num_links = len(self.link_names)
+        self.phi_nom = np.zeros((self.phi_dim * num_links), dtype=np.float64)
+        self._compute_inertial_params()
+        for i in range(num_links):
+            inertials = self.inertial_params[i]
+            mass  = inertials['mass']
+            com = inertials['com'] # CoM position w.r.t the joint frame of the link
+            h = mass * com # First moment of inertia
+            
+            # Inertia matrix
+            I_c = inertials['I_c']
+            # Order of rotation: roll, pitch, yaw (fixed axes)
+            rpy = inertials['rpy']
+            R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
+            I_rotated = R @ I_c @ R.T
+            I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
+            Ixx, Iyy, Izz = I_bar[0,0], I_bar[1,1], I_bar[2,2]
+            Ixy, Ixz, Iyz = I_bar[0,1], I_bar[0,2], I_bar[1,2]
+            # Store the inerta parameters inside phi_prior vector
+            j = 10*i
+            self.phi_nom[j] = mass
+            self.phi_nom[j+1: j+4] = h
+            self.phi_nom[j+4: j+10] = Ixx, Ixy, Iyy, Ixz, Iyz, Izz
+
+    def _compute_bounding_ellipsoids(self):
+        self.bounding_ellipsoids = []
+        robot = URDF.from_xml_file(self.urdf_path)
+        for link in robot.links:
+            if link.name in self.link_names:
+                for visual in link.visuals:
+                    geometry = visual.geometry
+                    if isinstance(geometry, Box):
+                        size = np.array(geometry.size)
+                        semi_axes = size / 2
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Cylinder):
+                        radius = geometry.radius
+                        length = geometry.length
+                        semi_axes = [radius, radius, length / 2]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Sphere):
+                        radius = geometry.radius
+                        semi_axes = [radius, radius, radius]
+                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
+                    elif isinstance(geometry, Mesh):
+                        dir_path = os.path.dirname(os.path.realpath(__file__))
+                        path = os.path.dirname(dir_path)
+                        path = os.path.dirname(path)
+                        mesh_path = path+"/files/"+geometry.filename[10:]
+                        mesh = trimesh.load_mesh(mesh_path)
+                        semi_axes = mesh.bounding_box.extents / 2
+                        origin =  visual.origin.xyz
+                        center =  mesh.bounding_box.centroid + origin
+                    else:
+                        raise ValueError(f"Unsupported geometry type for link {link.name}")
+                    self.bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
+
+    @abstractmethod
+    def _contact_block_dim(self) -> int:
+        """3 for point contacts, 6 for full wrenches."""
     
-    def _compute_J_c(self, contact_scedule):
-        # Returns the jacobian of m feet in contact, dim(3*m,18)
-        m = int(np.sum(contact_scedule))
-        J_c = np.zeros((3 * m, self.nv))
-        j = 0
-        for index in range(self._nb_ee):
-            if contact_scedule[index]:
-                frame_id = self._endeff_ids[index]
-                J_c[0+j:3+j, :] = pin.getFrameJacobian(self._rmodel, self._rdata, frame_id, pin.LOCAL_WORLD_ALIGNED)[0:3, :]
-                j += 3
-        return J_c
+    @abstractmethod
+    def _active_contact_frames(self, cnt_schedule: np.ndarray) -> list[int]:
+        """Return frame ids of active contacts in a consistent order."""
+
+    @abstractmethod
+    def _compute_J_c(self, cnt_schedule: np.ndarray) -> np.ndarray:
+        """Stacked contact Jacobian with shape (m*k, nv), k = _contact_block_dim()."""
+
+    @abstractmethod
+    def _compute_lambda_c(self, ee_wrenches: np.ndarray, cnt_schedule: np.ndarray) -> np.ndarray:
+        """Stacked lambda (m*k,), consistent with _compute_J_c ordering & block size."""
     
-    def _compute_lambda(self, force, contact_scedule):
-        # Returns the force vector of m feet in contact, dim(3*m)
-        m = int(np.sum(contact_scedule))
-        lamda = np.zeros(3 * m)
-        j = 0
-        for i in range(self._nb_ee):
-            if contact_scedule[i]:
-                lamda[0+j:3+j] = force[3*i:3*(i+1)]
-                j += 3
-        return lamda
-    
-    def _compute_null_space_proj(self, contact_scedule):
-        # Returns null space projector, dim(18, 18)
-        J_c = self._compute_J_c(contact_scedule)
-        p = np.eye((self.nv)) - pinv(J_c) @ J_c
-        return p
-        
-    def _braket_operator(self, vec):
+    def _braket_operator(self, vec: np.ndarray) -> np.ndarray:
+        # I_bar.(omega) = bracekt(omega).[Ixx, Ixy, Iyy, Ixz, Iyz, Izz].T
         x, y, z = vec
         return np.array([
             [x, y, 0, z, 0, 0],
@@ -156,15 +261,16 @@ class SystemIdentification(object):
             [0, 0, 0, x, y, z]
         ], dtype=np.float64)
     
-    def _compute_spatial_vel_acc(self):
+    def _compute_spatial_vel_acc(self) -> tuple:
         # Returns dictionaries of spatial velocity and acceleration of all joints
         spatial_vel = dict()
         spatial_acc = dict()
         spatial_vel = {i: self.rdata.v[i] for i in range(1, self.rmodel.njoints)}
         spatial_acc = {i: self.rdata.a[i] for i in range(1, self.rmodel.njoints)}
         return spatial_vel, spatial_acc
-    
-    def _compute_Y_i(self, v_i, a_i, R_i):
+
+    # -------------------- Classical Regressor -------------------- #
+    def _compute_Y_i(self, v_i: pin.Motion, a_i: pin.Motion, R_i: np.ndarray) -> np.ndarray:
         # Returns the regressor matrix, (dim:6x10), for an individual link
         # v, a are spatial velocity and acceleration
         omega = np.asarray(v_i.angular).reshape(3)
@@ -175,7 +281,7 @@ class SystemIdentification(object):
         g_local = R_i.T @ self.g
         a_lin   = ddp - g_local
         
-        # Create the regressor matrix Y_i
+        # Compute the regressor matrix Y_i
         # Row order [n; f] (moment/torque on top, force on bottom)
         Y_i = np.zeros((6, 10), dtype=np.float64)
         Y_i[0:3, 1:4] = pin.skew(-a_lin)
@@ -183,10 +289,11 @@ class SystemIdentification(object):
         Y_i[3:6, 0] = a_lin
         Y_i[3:6, 1:4] = pin.skew(alpha) + pin.skew(omega) @ pin.skew(omega)
         return Y_i
-    
-    def _compute_regressor_matrix(self):
+
+    def _compute_regressor_matrix(self) -> np.ndarray:
         """
-        Returns the global regressor matrix
+        Returns the classical regressor matrix
+        Y(q, dq, ddq) @ Phi_all_link = tau_rnea
         """
         # Reset Y for this call
         self.Y.fill(0.0)
@@ -218,7 +325,7 @@ class SystemIdentification(object):
                 # Free-flyer: 6 rows at the top
                 self.Y[0:6, col_start:col_end] += proj_Y_i
             else:
-                # For free-flyer revolutes joint's ids start from 2
+                # For free-flyer, revolutes joint's ids start from 2
                 # For fixed base, revolutes joint's ids start from 1
                 row_index = (6 + (i - 2)) if self.floating_base else (i-1)
                 self.Y[row_index, col_start:col_end] += proj_Y_i.flatten()
@@ -234,10 +341,10 @@ class SystemIdentification(object):
                 
                 # Force action (dual)
                 X_p_c_star = X_p_c.toDualActionMatrix()
-
+                
                 # Express current block in the parent frame
                 Y_up = self._force_swap @ (X_p_c_star @ (self._force_swap @ Y_up))
-                    
+                
                 # Project onto parent's joint subspace row
                 S_p = self.motion_subspace[parent_id]
                 if S_p.ndim == 1:
@@ -249,109 +356,51 @@ class SystemIdentification(object):
                 else:
                     row_p = (6 + (parent_id - 2)) if self.floating_base else (parent_id - 1)
                     self.Y[row_p, col_start:col_end] += proj_Y_p.flatten()
-
+                
                 # climb one level
                 cur = parent_id
                 parent_id = self.rmodel.parents[cur]
         return self.Y
-
-    def _compute_bounding_ellipsoids(self):
-        self._bounding_ellipsoids = []
-        robot = URDF.from_xml_file(self._urdf_path)
-        for link in robot.links:
-            if link.name in self._link_names:
-                for visual in link.visuals:
-                    geometry = visual.geometry
-                    if isinstance(geometry, Box):
-                        size = np.array(geometry.size)
-                        semi_axes = size / 2
-                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                    elif isinstance(geometry, Cylinder):
-                        radius = geometry.radius
-                        length = geometry.length
-                        semi_axes = [radius, radius, length / 2]
-                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                    elif isinstance(geometry, Sphere):
-                        radius = geometry.radius
-                        semi_axes = [radius, radius, radius]
-                        center = visual.origin.xyz if visual.origin else [0, 0, 0]
-                    elif isinstance(geometry, Mesh):
-                        dir_path = os.path.dirname(os.path.realpath(__file__))
-                        path = os.path.dirname(dir_path)
-                        mesh_path = path+"/files/"+geometry.filename[10:]
-                        mesh = trimesh.load_mesh(mesh_path)
-                        semi_axes = mesh.bounding_box.extents / 2
-                        origin =  visual.origin.xyz
-                        center =  mesh.bounding_box.centroid + origin
-                    else:
-                        raise ValueError(f"Unsupported geometry type for link {link.name}")
-                    self._bounding_ellipsoids.append({'semi_axes': semi_axes, 'center': center})
     
-    def _compute_phi_prior_pin(self):
-        # Compute the phi_prior of the robot with pinocchio
-        num_links = self._rmodel.njoints - 1
-        self.phi_prior = np.zeros(self._num_inertial_params * num_links, dtype=np.float64)
-        for jid in range(1, self._rmodel.njoints):
-            self.phi_prior[10*(jid-1):10*jid] = self._rmodel.inertias[jid].toDynamicParameters()
+    def _compute_tau_nom(
+        self,
+        q: np.ndarray,
+        dq: np.ndarray,
+        ddq: np.ndarray,
+        est_link_id: int = None
+    ) -> np.ndarray:
+        """
+        Returns the nominal joint torque vector assuming zero inertials for the estimated link.
+        """
+        Y_full = pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq, ddq)
+        phi_nom = self.phi_nom.copy()
+        if est_link_id is not None:
+            if est_link_id < 0 or est_link_id >= self.num_links:
+                raise ValueError(f"est_link_id {est_link_id} is out of range [0, {self.num_links-1}]")
+            i = 10 * est_link_id
+            phi_nom[i: i+10] = 0.0
+        tau_nom = Y_full @ phi_nom
+        return tau_nom
     
-    def _compute_inertial_params(self):
-        # Compute the inertial parameters for each link from URDF
-        # The CoM is expressed in the body farme about the joint origin
-        # The inertia matrix is expressed about the CoM frame
-        self.inertial_params = []
-        robot = URDF.from_xml_file(self._urdf_path)
-        for link in robot.links:
-            if link.name in self._link_names:
-                m = link.inertial.mass
-                com = np.array(link.inertial.origin.xyz)
-                rpy = np.array(link.inertial.origin.rpy)
-                I_xx = link.inertial.inertia.ixx
-                I_xy = link.inertial.inertia.ixy
-                I_xz = link.inertial.inertia.ixz
-                I_yy = link.inertial.inertia.iyy
-                I_yz = link.inertial.inertia.iyz
-                I_zz = link.inertial.inertia.izz
-                I_c = np.array([[I_xx, I_xy, I_xz],
-                                [I_xy, I_yy, I_yz],
-                                [I_xz, I_yz, I_zz]])
-                self.inertial_params.append({'mass': m, 'com': com, 'rpy': rpy, 'I_c': I_c})
-
-    def _compute_phi_prior(self):
-        # Returns the inertial parameters of all link concatenated in 1-D vector (size=10*num_link)
-        # The inertial parameters of each link is expressed w.r.t the body_frame at the joint origin
-        self.phi_prior = np.zeros((self._num_inertial_params * self._num_links), dtype=np.float64)
-        self._compute_inertial_params()
-        for i in range(self._num_links):
-            inertials = self.inertial_params[i]
-            mass  = inertials['mass']
-            com = inertials['com'] # CoM position w.r.t the joint frame of the link
-            h = mass * com # First moment of inertia
-            
-            # Inertia matrix
-            I_c = inertials['I_c']
-            # Order of rotation: roll, pitch, yaw (fixed axes)
-            rpy = inertials['rpy']
-            R = pin.utils.rpyToMatrix(rpy[0], rpy[1], rpy[2])
-            I_rotated = R @ I_c @ R.T
-            I_bar = I_rotated + (mass * pin.skew(com) @ pin.skew(com).T)
-            Ixx, Iyy, Izz = I_bar[0,0], I_bar[1,1], I_bar[2,2]
-            Ixy, Ixz, Iyz = I_bar[0,1], I_bar[0,2], I_bar[1,2]
-            # Store the inerta parameters inside phi_prior vector
-            j = 10*i
-            self.phi_prior[j] = mass
-            self.phi_prior[j+1: j+4] = h
-            self.phi_prior[j+4: j+10] = Ixx, Ixy, Iyy, Ixz, Iyz, Izz
-
-    def update_fk(self, q, dq, ddq):
-        # Update the forward kinematics of the robot
-        pin.forwardKinematics(self._rmodel, self._rdata, q, dq, ddq)
-        pin.framesForwardKinematics(self._rmodel, self._rdata, q)
-        pin.computeJointJacobians(self._rmodel, self._rdata, q)
-
+    # -------------------- Momentum_based Regressor -------------------- #
+    # TODO: Need to add Momentum based regressor, so we avoid ddq measurements
+    
+    # -------------------- API -------------------- #
+    def update_fk(self, q: np.ndarray, dq: np.ndarray, ddq: np.ndarray):
+        if q.shape[0] != self.nq:
+            raise ValueError(f"q has {q.shape[0]} elements, expected {self.nq}")
+        if dq.shape[0] != self.nv:
+            raise ValueError(f"dq has {dq.shape[0]} elements, expected {self.nv}")
+        if ddq.shape[0] != self.nv:
+            raise ValueError(f"ddq has {ddq.shape[0]} elements, expected {self.nv}")
+        pin.forwardKinematics(self.rmodel, self.rdata, q, dq, ddq)
+        pin.updateFramePlacements(self.rmodel, self.rdata)
+        pin.computeJointJacobians(self.rmodel, self.rdata, q)
+    
     def build_updated_urdf(self, phi_ident, b_v, b_c):
         # Creat a new URDF file based on identified inertial parameters
         # Load the URDF model
-        robot = URDF.from_xml_file(self._urdf_path)
+        robot = URDF.from_xml_file(self.urdf_path)
 
         # Iterate over each link and update the inertial parameters
         idx=0
@@ -392,26 +441,32 @@ class SystemIdentification(object):
                 idx += 1
         
         # Save the updated URDF
-        new_urdf_path = self._urdf_path.replace(".urdf", "_updated.urdf")
+        new_urdf_path = self.urdf_path.replace(".urdf", "_updated.urdf")
         with open(new_urdf_path, 'w') as f:
             f.write(robot.to_xml_string())
         print(f"Updated URDF saved at {new_urdf_path}")
-                   
+
+    def compute_null_space_proj(self, cnt_schedule: np.ndarray) -> np.ndarray:
+        # Returns null space projector, dim(nv, nv)
+        J_c = self._compute_J_c(cnt_schedule)
+        p = np.eye((self.nv)) - pinv(J_c) @ J_c
+        return p
+
     def get_robot_mass(self):
-        return self._robot_mass
+        return self.robot_mass
     
     def get_num_links(self):
-        return self._num_links
+        return self.num_links
         
     def get_num_dof(self):
         return self.nv
     
     def get_bounding_ellipsoids(self):
-        return self._bounding_ellipsoids
+        return self.bounding_ellipsoids
     
-    def get_phi_prior(self):
-        return self.phi_prior
-
+    def get_phi_nom(self) -> np.ndarray:
+        return self.phi_nom
+    
     def get_physical_consistency(self, phi):
         # Returns the minimum eigenvalue of matrices in LMI constraints and trace(J@Q)
         # For phiysical consistency all values should be non-negative
@@ -477,24 +532,26 @@ class SystemIdentification(object):
             eigval_J.append(min_eigval_J)
             eigval_com.append(min_eigval_c)
             trace_JQ.append(density_realizable)
-        return eigval_I_bar, eigval_I, eigval_J, eigval_com, trace_JQ
-    
+        return eigval_I_bar, eigval_I, eigval_J, eigval_com, trace_JQ   
+         
     def get_regressor_matrix(self, q, dq, ddq):
-        return pin.computeJointTorqueRegressor(self._rmodel, self._rdata, q, dq, ddq)
+        return pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq, ddq)
     
-    def get_null_space_proj(self, cnt_schedule):
-        P = self._compute_null_space_proj(cnt_schedule)
-        return P
+    def get_null_space_proj(self, cnt_schedule: np.ndarray) -> np.ndarray:
+        # Returns null space projector, dim(nv, nv)
+        J_c = self._compute_J_c(cnt_schedule)
+        p = np.eye((self.nv)) - pinv(J_c) @ J_c
+        return p
 
     def get_gen_force(self, tau, ee_force, cnt_schedule):
         J_c = self._compute_J_c(cnt_schedule)
-        lamda = self._compute_lambda(ee_force, cnt_schedule)
+        lamda = self._compute_lambda_c(ee_force, cnt_schedule)
         F = self.S.T @ tau + J_c.T @ lamda
         return F
     
     def get_cnt_force(self, force, cnt):
         J_c = self._compute_J_c(cnt)
-        lamda = self._compute_lambda(force, cnt)
+        lamda = self._compute_lambda_c(force, cnt)
         F = J_c.T @ lamda
         return F
     
@@ -503,8 +560,8 @@ class SystemIdentification(object):
         B_v = self.S.T @ np.diag(dq[self.base_dof:])
         B_c = self.S.T @ np.diag(np.sign(dq[self.base_dof:]))
         return B_v, B_c
-        
-    # Metods to print and show the results
+    
+    # -------------------- Debugging and Visualization -------------------- #
     def print_tau_prediction_rmse(self, q, dq, ddq, cnt, torque, b_v, b_c, phi, param_name):
         # Shows RMSE of predicted torques based on phi parameters
         tau_pred = []
@@ -562,7 +619,7 @@ class SystemIdentification(object):
             total_m_prior += m_prior
             total_m_ident += m_ident
         print(f'\nRobot total mass: {total_m_prior} ---- Identified total mass: {total_m_ident}')
-        
+    
     def _print_table(self, description, prior, ident):
         precision = 6
         change = ident - prior
@@ -575,22 +632,3 @@ class SystemIdentification(object):
         f'{change:>{self._cell_width}.{precision}f}|'
         f'{error:>{self._cell_width}.{1}f}|'
         )
-
-if __name__ == "__main__":
-    dir_path = os.path.dirname(os.path.realpath(__file__))
-    path = os.path.dirname(dir_path)
-    robot_urdf = path+"/files/spot_description/"+"spot.urdf"
-    robot_config = path+"/files/spot_description/"+"spot_config.yaml"
-    sys_idnt = SystemIdentification(str(robot_urdf), robot_config, floating_base=True)
-    
-    robot_q = np.random.rand(sys_idnt.nq)
-    robot_q = pin.normalize(sys_idnt._rmodel, robot_q)
-    robot_dq = np.random.random(sys_idnt.nv)
-    robot_ddq = np.random.random(sys_idnt.nv)
-    
-    # Checking the classical regressor matrix calculation
-    sys_idnt.update_fk(robot_q, robot_dq, robot_ddq)
-    Y = sys_idnt.get_regressor_matrix(robot_q, robot_dq, robot_ddq)
-    phi = sys_idnt.get_phi_prior()
-    tau_rnea = pin.rnea(sys_idnt._rmodel, sys_idnt._rdata, robot_q, robot_dq, robot_ddq)
-    print("[tau_rnea == Y @ phi] : ", np.allclose(tau_rnea, Y @ phi, atol=1e-16))

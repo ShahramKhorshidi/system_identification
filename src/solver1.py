@@ -40,7 +40,7 @@ class Solver():
     # ------------ Constrained Solver (LMI) ------------ #
     def _construct_spatial_body_inertia_matrix(self, phi):
         # Retunrs the spatial body inertia matrix (S:6x6) as a cvxpy expression
-        m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
+        m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
         S = cp.vstack([
             cp.hstack([I_xx, I_xy, I_xz, 0   , -h_z, h_y ]),
             cp.hstack([I_xy, I_yy, I_yz, h_z , 0   , -h_x]),
@@ -53,7 +53,7 @@ class Solver():
         
     def _construct_pseudo_inertia_matrix(self, phi):
         # Retunrs the pseudo inertia matrix (J:4x4) as a cvxpy expression
-        mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi
+        mass, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
         trace = (1/2) * (I_xx + I_yy + I_zz)
         pseudo_inertia_matrix = cp.vstack([
             cp.hstack([trace-I_xx, -I_xy     , -I_xz     , h_x ]),
@@ -129,7 +129,7 @@ class Solver():
         
         # Iterating over the robot links
         for idx in range(0, self._num_links):
-            # Extracting the inertial parameters of the link idx (phi = [m, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz])
+            # Extracting the inertial parameters of the link idx
             j = idx * self._num_inertial_params
             phi_idx = self._phi[j: j+self._num_inertial_params]
             phi_prior_idx = self._phi_prior[j: j+self._num_inertial_params]
