@@ -7,8 +7,7 @@ from src.solver.lmi_solver import LMISolver
 from src.solver.nls_solver import NonlinearLeastSquares
 from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
 
-
-def read_data(path, robot_name, filter_type):
+def load_data(path, robot_name, filter_type):
     path = os.path.abspath(path) + os.sep
 
     robot_q = np.loadtxt(path + robot_name + "_robot_q.dat", delimiter="\t", dtype=np.float32)
@@ -21,7 +20,6 @@ def read_data(path, robot_name, filter_type):
         order = 5
         cutoff_freq = 0.15  # normalized (Nyquist=1.0)
         b, a = signal.butter(order, cutoff_freq, btype="low", analog=False)
-
         robot_dq = signal.filtfilt(b, a, robot_dq, axis=1)
         robot_ddq = signal.filtfilt(b, a, robot_ddq, axis=1)
         robot_tau = signal.filtfilt(b, a, robot_tau, axis=1)
@@ -77,6 +75,7 @@ def get_robot_paths(root, robot):
             "description_dir": os.path.join(root, "files", "spot_description"),
             "urdf": os.path.join(root, "files", "spot_description", "spot.urdf"),
             "config": os.path.join(root, "files", "spot_description", "spot_config.yaml"),
+            "mesh_dir": os.path.join(root, "files", "spot_description", "meshes", "base", "visual"),
         },
         # "go1": {...},
         # "anymal": {...},
@@ -128,13 +127,12 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
         Y_proj, tau_proj, num_of_links, phi_nominal, B_v=B_v_proj, B_c=B_c_proj
     )
 
-    phi_identified, b_v, b_c = solver.solve_gn(lambda_reg=1e-4)
+    phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=100, tol=1e-5)
 
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, friction=True)
 
-    print("\n #####" ,b_v, "\n", b_c)
     return phi_identified
 
 def parse_args():
@@ -157,10 +155,13 @@ def main():
     robot_paths = get_robot_paths(root, args.robot)
 
     # Load data
-    q, dq, ddq, tau, cnt = read_data(data_dir, args.robot, args.filter)
+    q, dq, ddq, tau, cnt = load_data(data_dir, args.robot, args.filter)
 
     # Build dynamics model
-    quad_dyn = QuadrupedDynamics(robot_paths["urdf"], robot_paths["config"])
+    # You only need to provide the mesh_dir if you want to use the LMI solver.
+    # For the NLS solver, you can set mesh_dir=None.
+    mesh_dir = robot_paths["mesh_dir"] if args.solver == "lmi" else None
+    quad_dyn = QuadrupedDynamics(robot_paths["urdf"], robot_paths["config"], mesh_dir)
 
     # Solve
     if args.solver == "lmi":
