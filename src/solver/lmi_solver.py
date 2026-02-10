@@ -3,19 +3,35 @@ import cvxpy as cp
 
 
 class LMISolver():
-    def __init__(self, regressor, tau_vec, num_links, phi_prior, total_mass, bounding_ellipsoids, B_v=None, B_c=None):
+    """
+    Offline linear matrix inequality (LMI) optimization to identify the inertial parameters of a chain of rigid bodies.
+    It ensures physical feasibility using LMI constraints based on pseudo-inertia matrices and bounding ellipsoids.
+    see: https://doi.org/10.48550/arXiv.2409.09850
+
+    """
+    def __init__(
+            self, 
+            regressor: np.ndarray, 
+            tau_vec: np.ndarray,
+            num_links: int,
+            phi_nominal: np.ndarray,
+            total_mass: float,
+            bounding_ellipsoids,
+            B_v: np.ndarray = None,
+            B_c: np.ndarray = None
+        ):
         self._Y = regressor
         self._tau = tau_vec
         self._nx = self._Y.shape[1]
         self._num_samples = self._Y.shape[0]
         self._num_links = num_links
         self._num_inertial_params = self._Y.shape[1] // self._num_links
-        self._phi_prior = phi_prior  # Prior inertial parameters
+        self._phi_prior = phi_nominal  # Prior inertial parameters
         self.total_mass = total_mass
         self._bounding_ellipsoids = bounding_ellipsoids
         
         # Initialize optimization variables and problem to use solvers from cp
-        self._phi = cp.Variable(self._nx, value=phi_prior)
+        self._phi = cp.Variable(self._nx, value=phi_nominal)
         self._identify_fric = (B_v is not None) and (B_c is not None)
         if self._identify_fric:
             self._B_v = B_v
@@ -27,21 +43,8 @@ class LMISolver():
         self._constraints = []
         self._problem = None
 
-    # -------------------- Internal methods -------------------- #
-    def _construct_spatial_body_inertia_matrix(self, phi):
-        # Retunrs the spatial body inertia matrix (S:6x6) as a cvxpy expression
-        m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
-        S = cp.vstack([
-            cp.hstack([I_xx, I_xy, I_xz, 0   , -h_z, h_y ]),
-            cp.hstack([I_xy, I_yy, I_yz, h_z , 0   , -h_x]),
-            cp.hstack([I_xz, I_yz, I_zz, -h_y, h_x , 0   ]),
-            cp.hstack([0   , h_z , -h_y, m   , 0   , 0   ]),
-            cp.hstack([-h_z, 0   , h_x ,0    , m   , 0   ]),
-            cp.hstack([h_y , -h_x, 0   ,0    , 0   , m   ])
-        ])
-        return S
-        
-    def _construct_pseudo_inertia_matrix(self, phi):
+    # -------------------- Internal methods -------------------- #        
+    def _construct_pseudo_inertia_matrix(self, phi: np.ndarray) -> cp.Expression:
         # Retunrs the pseudo inertia matrix (J:4x4) as a cvxpy expression
         mass, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi
         trace = (1/2) * (I_xx + I_yy + I_zz)
@@ -81,7 +84,7 @@ class LMISolver():
         ])
         return com_constraint
     
-    def _pullback_metric(self, phi):
+    def _pullback_metric(self, phi: np.ndarray) -> np.ndarray:
         # Returns the approximation of Riemannian distance metric (M:10x10) as a numpy array
         M = np.zeros((self._num_inertial_params, self._num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
@@ -119,7 +122,13 @@ class LMISolver():
         A_psudo = VT.T @ Sigma_inv @ U.T
         return A_psudo@self._tau
     
-    def solve_fully_consistent(self, lambda_reg=1e-4, tol=1e-10, max_iters=1000, reg_type="constant_pullback"):
+    def solve_fully_consistent(
+            self, 
+            lambda_reg:float = 1e-4,
+            tol:float = 1e-10,
+            max_iters:int=1000,
+            reg_type: str ="constant_pullback"
+        ):
         """
         Solve constrained least squares problem as LMI. Ensuring physical fully-consistency.
         """
@@ -214,9 +223,11 @@ class LMISolver():
             print("########################################")
             # Return the value of the decision variables
             if self._identify_fric:
-                return self._phi.value, self._b_v.value, self._b_c.value
+                b_v = self._b_v.value
+                b_c = self._b_c.value
             else:
-                return self._phi.value
+                b_v = b_c = None
+            return self._phi.value, b_v, b_c
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")
