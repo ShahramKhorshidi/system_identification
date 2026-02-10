@@ -1,7 +1,7 @@
 # System_Identification
 **Physically-Consistent Parameter Identification of Robots in Contact.**
 
-This repository provides an offline system identification pipeline to estimate **physically-consistent inertial parameters** of legged robots from joint torque measurements. The main focus is to deal with contact rich legged robots and guarantee *physical feasibility* of the identified parameters (e.g., positive-definite rotational inertia, valid mass and COM relationships), which is essential for stable simulation, control, and downstream estimation.
+This repository provides an offline system identification pipeline to estimate **physically-consistent inertial parameters** of legged robots from joint torque measurements. The main focus is to deal with contact-rich dynamics of legged robots and guarantee *physical feasibility* of the identified parameters (e.g., positive-definite rotational inertia, valid mass and COM relationships), which is essential for stable simulation, control, and downstream estimation.
 
 The codebase includes **two complementary solvers**:
 
@@ -73,13 +73,13 @@ python demo/run_identification.py --robot spot --solver lmi
 python demo/run_identification.py --robot spot --solver nls
 ```
 
-The data from Spot quadruped includes 24,000 samples of the robot performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
+The data from Spot quadruped includes 10,500 samples of the robot performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
 
 ---
 
 ## Citation
 
-If you use this repository in academic work, please cite the following work:
+If you use this repository in an academic work, please cite the following paper:
 ```
 @inproceedings{khorshidi25icra,
   title={Physically-Consistent Parameter Identification of Robots in Contact}, 
