@@ -58,7 +58,9 @@ conda install -c mosek mosek
 ### (ii) Get a license (academic or trial)
 Personal Academic [license](https://www.mosek.com/products/academic-licenses/)  is free for faculty/students/staff at degree-granting institutions (request must use an academic email).
 
-### (4) Run a demo
+---
+## Run the identification
+### (1) Run a demo
 Check the demo/ folder for example scripts/notebooks. Typical workflow:
 
 - Load a robot model (URDF + meshes) via Pinocchio
@@ -73,7 +75,56 @@ python demo/run_identification.py --robot spot --solver lmi
 python demo/run_identification.py --robot spot --solver nls
 ```
 
-The data from Spot quadruped includes 10,500 samples of the robot performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
+The data from Spot quadruped includes 10,500 samples of the robot (collected at 100 Hz) performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
+
+## Adding a New Robot
+The framework is robot-agnostic and can be extended to new platforms by providing a robot model and a corresponding configuration file.
+
+### (1) Robot description (URDF)
+To add a new robot:
+
+- Include the robot URDF file and associated assets (meshes, materials).
+- Place them under:
+```
+files/<robot_name>_description/
+```
+- The URDF must define:
+  - Correct joint ordering
+  - Link inertial parameters (used as nominal values)
+  - Consistent link and frame naming
+
+### (2) Robot configuration file
+For each robot, a YAML configuration file must be provided.  
+Use `spot_config.yaml` as a reference template.
+
+The configuration file specifies:
+- `name`: robot name
+- `mass`: robot mass
+- `link_names`: list of links included in the identification
+- `end_effector_frame_names`: frames used for contact modeling
+
+The entries in `link_names` and `end_effector_frame_names` **must exactly match the corresponding link and frame names defined in the URDF**. Any mismatch will lead to incorrect regressor construction or runtime errors.
+
+### (3) Mesh files (required for LMI solver)
+When using the **LMI solver**, geometric information is required to construct **bounding ellipsoids** for each link, which enforce physical consistency of the inertial parameters.
+
+Therefore:
+- Each identified link must have an associated **mesh file** (or a rough geometric approximation).
+- Mesh files must:
+  - Be placed in the robot description folder
+  - Have the **same name as the corresponding link**
+  - Represent a reasonable approximation of the link geometry
+
+These meshes are used **only for physical consistency constraints** and do not need to be visually accurate.
+
+### (4) Updating the demo script
+After adding the robot description and configuration:
+- Register the robot in `demo/run_identification.py`
+- Include robot trajectories for identification in the data folder
+- Run:
+```
+python demo/run_identification.py --robot <robot_name> --solver <solver_name>
+```
 
 ---
 
