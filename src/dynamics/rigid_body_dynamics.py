@@ -78,6 +78,7 @@ class RigidBodyDynamics(ABC):
         ])
 
         # Initialization
+        self.bounding_ellipsoids = None
         if mesh_dir is not None:
             self.mesh_dir = mesh_dir
             self._compute_bounding_ellipsoids()
@@ -418,7 +419,7 @@ class RigidBodyDynamics(ABC):
         # Iterate over each link and update the inertial parameters
         idx=0
         for link in robot.links:
-            if link.name in self._link_names:
+            if link.name in self.link_names:
                 # Extract the inertial parameters of the link
                 mass, h_x, h_y, h_z, I_xx, I_xy, I_xz, I_yy, I_yz, I_zz = phi_ident[idx: idx+10]
                 com = np.array([h_x, h_y, h_z])/mass
@@ -483,69 +484,63 @@ class RigidBodyDynamics(ABC):
     def get_physical_consistency(self, phi):
         # Returns the minimum eigenvalue of matrices in LMI constraints and trace(J@Q)
         # For phiysical consistency all values should be non-negative
-        eigval_I_bar = []
-        eigval_I = [] # Spatial body inertia
-        eigval_J = [] # Pseudo inertia
-        eigval_com =[]
-        trace_JQ = []
-        
-        for idx in range(self._num_links):
-            # Extracting the inertial parameters
-            j = idx * self._num_inertial_params
-            m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi[j: j+self._num_inertial_params]
+        eigval_I_bar = np.zeros(self.num_links)
+        eigval_I = np.zeros(self.num_links)      # Spatial body inertia
+        eigval_J = np.zeros(self.num_links)      # Pseudo inertia
+
+        # Only allocate if ellipsoids exist
+        trace_JQ = None
+        if self.bounding_ellipsoids is not None:
+            trace_JQ = np.zeros(self.num_links)
+
+        for idx in range(self.num_links):
+            j = idx * 10
+            m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi[j: j+10]
             h = np.array([h_x, h_y, h_z])
-            ellipsoid_params = self._bounding_ellipsoids[idx]
-            semi_axes = ellipsoid_params['semi_axes']
-            center = ellipsoid_params['center']
-            
+
             # Inertia matrix (3x3)
-            I_bar = np.array([[I_xx, I_xy, I_xz],
-                              [I_xy, I_yy, I_yz],
-                              [I_xz, I_yz, I_zz]])
-            
+            I_bar = np.array([
+                [I_xx, I_xy, I_xz],
+                [I_xy, I_yy, I_yz],
+                [I_xz, I_yz, I_zz]
+            ])
+
             # Spatial body inertia (6x6)
-            I = np.zeros((6,6), dtype=np.float32)
-            I[0:3, 0:3] = I_bar
-            I[0:3, 3:] = pin.skew(h)
-            I[3:, 0:3] = pin.skew(h).T
+            I = np.zeros((6, 6), dtype=np.float32)
+            I[:3, :3] = I_bar
+            I[:3, 3:] = pin.skew(h)
+            I[3:, :3] = pin.skew(h).T
             I[3:, 3:] = m * np.eye(3)
-            
+
             # Pseudo inertia matrix (4x4)
-            J = np.zeros((4,4), dtype=np.float32)
-            J[:3, :3] = (1/2) * np.trace(I_bar) * np.eye(3) - I_bar
+            J = np.zeros((4, 4), dtype=np.float32)
+            J[:3, :3] = 0.5 * np.trace(I_bar) * np.eye(3) - I_bar
             J[:3, 3] = h
-            J[3, :3] = h.T
-            J[3,3] = m            
-            
-            # Bounding ellipsoid: Q matrix (4x4)
-            Q_full = np.zeros((4,4), dtype=np.float32)
-            Q = np.linalg.inv(np.diag(semi_axes)**2)
-            Q_full[:3, :3] = Q
-            Q_full[:3, 3] = Q @ center
-            Q_full[3, :3] = (Q @ center).T
-            Q_full[3, 3] = 1 - (center.T @ Q @ center)
-            
-            # CoM constraint (4x4)
-            C = np.zeros((4,4), dtype=np.float32)
-            C[0, 0] = m
-            C[0, 1:] = h.T - m * center.T
-            C[1:, 0] = h - m * center
-            C[1:, 1:] = m * np.diag(semi_axes)**2
-            
-            # Calculate minimum eigenvalue of each matrix
-            min_eigval_I_bar = np.min(np.linalg.eigvals(I_bar))
-            min_eigval_I = np.min(np.linalg.eigvals(I))
-            min_eigval_J = np.min(np.linalg.eigvals(J))
-            min_eigval_c = np.min(np.linalg.eigvals(C))
-            density_realizable = np.trace(J @ Q_full)
-            
-            # Add to the list
-            eigval_I_bar.append(min_eigval_I_bar)
-            eigval_I.append(min_eigval_I)
-            eigval_J.append(min_eigval_J)
-            eigval_com.append(min_eigval_c)
-            trace_JQ.append(density_realizable)
-        return eigval_I_bar, eigval_I, eigval_J, eigval_com, trace_JQ   
+            J[3, :3] = h
+            J[3, 3] = m
+
+            # Bounding ellipsoid constraint
+            if self.bounding_ellipsoids is not None:
+                ellipsoid = self.bounding_ellipsoids[idx]
+                semi_axes = ellipsoid["semi_axes"]
+                center = ellipsoid["center"]
+
+                Q = np.linalg.inv(np.diag(semi_axes) ** 2)
+
+                Q_full = np.zeros((4, 4), dtype=np.float32)
+                Q_full[:3, :3] = Q
+                Q_full[:3, 3] = Q @ center
+                Q_full[3, :3] = (Q @ center).T
+                Q_full[3, 3] = 1.0 - center.T @ Q @ center
+
+                trace_JQ[idx] = np.trace(J @ Q_full)
+
+            # Eigenvalue checks
+            eigval_I_bar[idx] = np.min(np.linalg.eigvalsh(I_bar))
+            eigval_I[idx] = np.min(np.linalg.eigvalsh(I))
+            eigval_J[idx] = np.min(np.linalg.eigvalsh(J))
+
+        return eigval_I_bar, eigval_I, eigval_J, trace_JQ
          
     def get_regressor_matrix(self, q, dq, ddq):
         return pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq, ddq)
@@ -575,7 +570,7 @@ class RigidBodyDynamics(ABC):
         return B_v, B_c
     
     # -------------------- Debugging and Visualization -------------------- #
-    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name, b_v=None, b_c=None, friction=False):
+    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name, b_v=None, b_c=None, with_contact=True):
         # Shows RMSE of predicted torques based on phi parameters
         tau_pred = []
         tau_meas = []
@@ -583,8 +578,11 @@ class RigidBodyDynamics(ABC):
         for i in range(q.shape[1]):
             self.update_fk(q[:, i], dq[:, i], ddq[:, i])
             Y = pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q[:, i], dq[:, i], ddq[:, i])
-            P = self.get_null_space_proj(cnt[:, i])
-            if friction:
+            if with_contact:
+                P = self.get_null_space_proj(cnt[:, i])
+            else:
+                P = np.eye(self.nv)
+            if b_v is not None and b_c is not None:
                 tau_prediction = P @ (Y @ phi 
                                 - self.S.T @ (np.diag(b_v) @ dq[self.base_dof:, i] 
                                 + np.diag(b_c) @ np.sign(dq[self.base_dof:, i])))

@@ -26,7 +26,7 @@ def load_data(path, robot_name, filter_type):
 
     elif filter_type == "savitzky":
         polyorder = 5
-        window_length = 21  # must be odd and > polyorder
+        window_length = 11  # must be odd and > polyorder
         robot_dq = savgol_filter(robot_dq, window_length, polyorder)
         robot_ddq = savgol_filter(robot_ddq, window_length, polyorder)
         robot_tau = savgol_filter(robot_tau, window_length, polyorder)
@@ -44,6 +44,8 @@ def get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     for i in range(q.shape[1]):
         quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
         y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+        # Here we project the regressor and torque into the null space of the contact constraints, 
+        # If you use manipulator with no contact constraints, you should skip this projection.
         P = quad_dyn.get_null_space_proj(cnt[:, i])
         Y.append(P @ y)
         Tau.append(P @ quad_dyn.S.T @ torque[:, i])
@@ -55,6 +57,8 @@ def get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn):
     for i in range(q.shape[1]):
         quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
         b_v, b_c = quad_dyn.get_friction_regressors(dq[:, i])
+        # Here we project the friction regressors into the null space of the contact constraints, 
+        # If you use manipulator with no contact constraints, you should skip this projection.
         P = quad_dyn.get_null_space_proj(cnt[:, i])
         B_v.append(P @ b_v)
         B_c.append(P @ b_c)
@@ -107,7 +111,7 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     # Reporting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, friction=True)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
 
     return phi_identified
 
@@ -126,12 +130,12 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     solver = NonlinearLeastSquares(
         Y_proj, tau_proj, num_of_links, phi_nominal, B_v=B_v_proj, B_c=B_c_proj
     )
-
     phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=100, tol=1e-5)
 
+    # Reporting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, friction=True)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
 
     return phi_identified
 

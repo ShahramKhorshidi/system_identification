@@ -78,6 +78,7 @@
     <parent link="body"/>
     <child link="front_left_hip"/>
     <limit effort="1000" lower="-0.78539816339744827899" upper="0.78539816339744827899" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="front_left_upper_leg">
     <visual>
@@ -103,6 +104,7 @@
     <parent link="front_left_hip"/>
     <child link="front_left_upper_leg"/>
     <limit effort="1000" lower="-0.89884456477707963539" upper="2.2951079663725435509" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="front_left_lower_leg">
     <visual>
@@ -134,6 +136,7 @@
     <parent link="front_left_upper_leg"/>
     <child link="front_left_lower_leg"/>
     <limit effort="1000" lower="-2.7929" upper="-0.254801" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <!-- Joint between the lower leg and the ankle,
          this is only a dummy joint such that we
@@ -172,6 +175,7 @@
     <parent link="body"/>
     <child link="front_right_hip"/>
     <limit effort="1000" lower="-0.78539816339744827899" upper="0.78539816339744827899" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="front_right_upper_leg">
     <visual>
@@ -197,6 +201,7 @@
     <parent link="front_right_hip"/>
     <child link="front_right_upper_leg"/>
     <limit effort="1000" lower="-0.89884456477707963539" upper="2.2951079663725435509" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="front_right_lower_leg">
     <visual>
@@ -228,6 +233,7 @@
     <parent link="front_right_upper_leg"/>
     <child link="front_right_lower_leg"/>
     <limit effort="1000" lower="-2.7929" upper="-0.247563" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <!-- Joint between the lower leg and the ankle,
          this is only a dummy joint such that we
@@ -266,6 +272,7 @@
     <parent link="body"/>
     <child link="rear_left_hip"/>
     <limit effort="1000" lower="-0.78539816339744827899" upper="0.78539816339744827899" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="rear_left_upper_leg">
     <visual>
@@ -291,6 +298,7 @@
     <parent link="rear_left_hip"/>
     <child link="rear_left_upper_leg"/>
     <limit effort="1000" lower="-0.89884456477707963539" upper="2.2951079663725435509" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="rear_left_lower_leg">
     <visual>
@@ -322,6 +330,7 @@
     <parent link="rear_left_upper_leg"/>
     <child link="rear_left_lower_leg"/>
     <limit effort="1000" lower="-2.7929" upper="-0.267153" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <!-- Joint between the lower leg and the ankle,
          this is only a dummy joint such that we
@@ -360,6 +369,7 @@
     <parent link="body"/>
     <child link="rear_right_hip"/>
     <limit effort="1000" lower="-0.78539816339744827899" upper="0.78539816339744827899" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="rear_right_upper_leg">
     <visual>
@@ -385,6 +395,7 @@
     <parent link="rear_right_hip"/>
     <child link="rear_right_upper_leg"/>
     <limit effort="1000" lower="-0.89884456477707963539" upper="2.2951079663725435509" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <link name="rear_right_lower_leg">
     <visual>
@@ -416,6 +427,7 @@
     <parent link="rear_right_upper_leg"/>
     <child link="rear_right_lower_leg"/>
     <limit effort="1000" lower="-2.7929" upper="-0.257725" velocity="1000.00"/>
+    <dynamics damping="0.0" friction="0.0"/>
   </joint>
   <!-- Joint between the lower leg and the ankle,
          this is only a dummy joint such that we
