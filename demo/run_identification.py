@@ -6,6 +6,8 @@ from scipy.signal import savgol_filter
 from src.solver.lmi_solver import LMISolver
 from src.solver.nls_solver import NonlinearLeastSquares
 from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
+from utils.plot_class import PlotClass
+import matplotlib.pyplot as plt
 
 def load_data(path, robot_name, filter_type):
     path = os.path.abspath(path) + os.sep
@@ -108,10 +110,15 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     )
     phi_identified, b_v, b_c = solver.solve_fully_consistent()
 
-    # Reporting
+    # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
+
+    plotter = PlotClass(phi_nominal)
+    plotter.plot_mass(phi_identified, "Mass Comparison")
+    plotter.plot_inertia(phi_identified, "Inertia Comparison")
+    plt.show()
 
     return phi_identified
 
@@ -132,10 +139,15 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     )
     phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=100, tol=1e-5)
 
-    # Reporting
+    # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
+
+    plotter = PlotClass(phi_nominal)
+    plotter.plot_mass(phi_identified, "Mass Comparison")
+    plotter.plot_inertia(phi_identified, "Inertia Comparison")
+    plt.show()
 
     return phi_identified
 

@@ -31,6 +31,7 @@ class PlotClass():
         ax.set_xticklabels(link_indices)
         ax.legend()
         plt.tight_layout()
+        plt.grid()
 
     def plot_h(self, phi_ident, title):
         num_links = 13
@@ -157,6 +158,7 @@ class PlotClass():
         axs[2].set_xlabel('Link Number')
         axs[2].set_ylabel('I_xz (kg.m^2)')
         axs[2].legend()
+        plt.tight_layout()
         
         fig2, axs2 = plt.subplots(3, 1, figsize=(12, 18))
         plt.get_current_fig_manager().set_window_title(title)
