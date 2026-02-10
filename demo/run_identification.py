@@ -9,7 +9,6 @@ from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
 
 
 def read_data(path, robot_name, filter_type):
-    # Ensure trailing slash-safe path handling
     path = os.path.abspath(path) + os.sep
 
     robot_q = np.loadtxt(path + robot_name + "_robot_q.dat", delimiter="\t", dtype=np.float32)
@@ -114,12 +113,29 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     return phi_identified
 
 def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
-    """
-    Placeholder. Implement when your NLS solver is ready.
-    You will likely reuse the same projected Y,tau (or use a direct cost),
-    then run the log-Cholesky parameterized optimization.
-    """
-    raise NotImplementedError("NLS solver not wired yet. Use --solver lmi for now.")
+    num_of_links = quad_dyn.get_num_links()
+    phi_nominal = quad_dyn.get_phi_nominal()
+
+    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
+    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
+
+    Y_proj = np.vstack(Y_proj)
+    tau_proj = np.hstack(tau_proj)
+    B_v_proj = np.vstack(B_v_proj)
+    B_c_proj = np.vstack(B_c_proj)
+
+    solver = NonlinearLeastSquares(
+        Y_proj, tau_proj, num_of_links, phi_nominal, B_v=B_v_proj, B_c=B_c_proj
+    )
+
+    phi_identified, b_v, b_c = solver.solve_gn(lambda_reg=1e-4)
+
+    quad_dyn.print_inertial_params(phi_nominal, phi_identified)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, friction=True)
+
+    print("\n #####" ,b_v, "\n", b_c)
+    return phi_identified
 
 def parse_args():
     p = argparse.ArgumentParser(description="Offline inertial parameter identification demo")
