@@ -77,10 +77,10 @@ python demo/run_identification.py --robot spot --solver nls
 
 The data from Spot quadruped includes 10,500 samples of the robot (collected at 100 Hz) performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
 
-## Adding a New Robot
+### (2) Adding a New Robot
 The framework is robot-agnostic and can be extended to new platforms by providing a robot model and a corresponding configuration file.
 
-### (1) Robot description (URDF)
+#### (i) Robot description (URDF)
 To add a new robot:
 
 - Include the robot URDF file and associated assets (meshes, materials).
@@ -93,7 +93,7 @@ files/<robot_name>_description/
   - Link inertial parameters (used as nominal values)
   - Consistent link and frame naming
 
-### (2) Robot configuration file
+#### (ii) Robot configuration file
 For each robot, a YAML configuration file must be provided.  
 Use `spot_config.yaml` as a reference template.
 
@@ -105,7 +105,7 @@ The configuration file specifies:
 
 The entries in `link_names` and `end_effector_frame_names` **must exactly match the corresponding link and frame names defined in the URDF**. Any mismatch will lead to incorrect regressor construction or runtime errors.
 
-### (3) Mesh files (required for LMI solver)
+#### (iii) Mesh files (required for LMI solver)
 When using the **LMI solver**, geometric information is required to construct **bounding ellipsoids** for each link, which enforce physical consistency of the inertial parameters.
 
 Therefore:
@@ -117,7 +117,7 @@ Therefore:
 
 These meshes are used **only for physical consistency constraints** and do not need to be visually accurate.
 
-### (4) Updating the demo script
+#### (iv) Updating the demo script
 After adding the robot description and configuration:
 - Register the robot in `demo/run_identification.py`
 - Include robot trajectories for identification in the data folder
