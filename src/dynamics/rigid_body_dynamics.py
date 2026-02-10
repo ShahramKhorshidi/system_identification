@@ -9,7 +9,14 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
 
 class RigidBodyDynamics(ABC):
-    def __init__(self, urdf_file: str, config_file: str, floating_base: bool, info: bool = False):
+    def __init__(
+            self,
+            urdf_file: str,
+            config_file: str,
+            mesh_dir: str,
+            floating_base: bool,
+            info: bool = False
+        ):
         self.urdf_path = urdf_file
         # Create robot model and data
         self.floating_base = floating_base
@@ -71,7 +78,9 @@ class RigidBodyDynamics(ABC):
         ])
 
         # Initialization
-        self._compute_bounding_ellipsoids()
+        if mesh_dir is not None:
+            self.mesh_dir = mesh_dir
+            self._compute_bounding_ellipsoids()
         self._init_motion_subspace_dict()
         self._compute_phi_nom_pin()
         self._init_com_frames()
@@ -225,10 +234,7 @@ class RigidBodyDynamics(ABC):
                         semi_axes = [radius, radius, radius]
                         center = visual.origin.xyz if visual.origin else [0, 0, 0]
                     elif isinstance(geometry, Mesh):
-                        dir_path = os.path.dirname(os.path.realpath(__file__))
-                        path = os.path.dirname(dir_path)
-                        path = os.path.dirname(path)
-                        mesh_path = path+"/files/"+geometry.filename[10:]
+                        mesh_path = self.mesh_dir + "/" +  link.name + ".obj"
                         mesh = trimesh.load_mesh(mesh_path)
                         semi_axes = mesh.bounding_box.extents / 2
                         origin =  visual.origin.xyz

@@ -77,7 +77,7 @@ python demo/run_identification.py --robot spot --solver nls
 
 The data from Spot quadruped includes 10,500 samples of the robot (collected at 100 Hz) performing various trajectories, such as base wobbling, squatting with all feet in contact, forward-backward walking, and side-to-side walking.
 
-### (2) Adding a New Robot
+### (2) Adding a new robot
 The framework is robot-agnostic and can be extended to new platforms by providing a robot model and a corresponding configuration file.
 
 #### (i) Robot description (URDF)

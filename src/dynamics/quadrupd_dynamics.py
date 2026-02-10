@@ -4,8 +4,8 @@ from src.dynamics.rigid_body_dynamics import RigidBodyDynamics
 
 
 class QuadrupedDynamics(RigidBodyDynamics):
-    def __init__(self, urdf_file, config_file):
-        super(QuadrupedDynamics, self).__init__(urdf_file, config_file, floating_base=True)
+    def __init__(self, urdf_file, config_file, mesh_dir=None):
+        super(QuadrupedDynamics, self).__init__(urdf_file, config_file, mesh_dir, floating_base=True)
     
     def _contact_block_dim(self) -> int:
         return 3  # Fx, Fy, Fz (point-contact model)

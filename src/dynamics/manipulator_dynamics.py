@@ -4,8 +4,8 @@ from src.dynamics.rigid_body_dynamics import RigidBodyDynamics
 
 
 class ManipulatorDynamics(RigidBodyDynamics):
-    def __init__(self, urdf_file, config_file):
-        super(ManipulatorDynamics, self).__init__(urdf_file, config_file, floating_base=False)
+    def __init__(self, urdf_file, config_file, mesh_dir=None):
+        super(ManipulatorDynamics, self).__init__(urdf_file, config_file, mesh_dir, floating_base=False)
 
     def _contact_block_dim(self) -> int:
         pass
