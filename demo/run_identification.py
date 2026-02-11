@@ -40,10 +40,11 @@ def load_data(path, robot_name, filter_type):
 
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
-def get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
+def get_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     Y = []
     Tau = []
     for i in range(q.shape[1]):
+        # Make sure to update the kinematics in the dynamics model at each time step
         quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
         y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
         # Here we project the regressor and torque into the null space of the contact constraints, 
@@ -53,7 +54,7 @@ def get_projected_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
         Tau.append(P @ quad_dyn.S.T @ torque[:, i])
     return Y, Tau
 
-def get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn):
+def get_friction_regressors(q, dq, ddq, cnt, quad_dyn):
     B_v = []
     B_c = []
     for i in range(q.shape[1]):
@@ -97,24 +98,24 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     phi_nominal = quad_dyn.get_phi_nominal()
     bounding_ellipsoids = quad_dyn.get_bounding_ellipsoids()
 
-    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
-    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
+    Y, Torque = get_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
+    B_v, B_c = get_friction_regressors(q, dq, ddq, cnt, quad_dyn)
 
-    Y_proj = np.vstack(Y_proj)
-    tau_proj = np.hstack(tau_proj)
-    B_v_proj = np.vstack(B_v_proj)
-    B_c_proj = np.vstack(B_c_proj)
+    # Stack data into big matrices for the solver
+    Y = np.vstack(Y)
+    Torque = np.hstack(Torque)
+    B_v = np.vstack(B_v)
+    B_c = np.vstack(B_c)
 
     solver = LMISolver(
-        Y_proj, tau_proj, num_of_links, phi_nominal, total_mass, bounding_ellipsoids,
-        B_v=B_v_proj, B_c=B_c_proj
+        Y, Torque, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c
     )
     phi_identified, b_v, b_c = solver.solve_fully_consistent()
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_nominal, "Nominal", cnt)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_identified, "Identified", cnt, b_v, b_c)
 
     plotter = PlotClass(phi_nominal)
     plotter.plot_mass(phi_identified, "Mass Comparison")
@@ -126,31 +127,25 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
 def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     num_of_links = quad_dyn.get_num_links()
     phi_nominal = quad_dyn.get_phi_nominal()
-    J = np.random.rand(4, 4) * 0.0001
-    J = J @ J.T
-    m = 16
-    h = J[0:3, 3]
-    I_bar = (np.trace(J[0:3, 0:3]) * np.eye(3) - J[0:3, 0:3])
-    Ixx, Ixy, Iyy, Ixz, Iyz, Izz = I_bar[0,0], I_bar[0,1], I_bar[1,1], I_bar[0,2], I_bar[1,2], I_bar[2,2]
-    phi = np.hstack((m, h, Ixx, Ixy, Iyy, Ixz, Iyz, Izz))
 
-    Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
-    B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
+    Y, Torque = get_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
+    B_v, B_c = get_friction_regressors(q, dq, ddq, cnt, quad_dyn)
 
-    Y_proj = np.vstack(Y_proj)
-    tau_proj = np.hstack(tau_proj)
-    B_v_proj = np.vstack(B_v_proj)
-    B_c_proj = np.vstack(B_c_proj)
+    # Stack data into big matrices for the solver
+    Y = np.vstack(Y)
+    Torque = np.hstack(Torque)
+    B_v = np.vstack(B_v)
+    B_c = np.vstack(B_c)
 
     solver = NonlinearLeastSquares(
-        Y_proj, tau_proj, num_of_links, phi_nominal, B_v=B_v_proj, B_c=B_c_proj
+        Y, Torque, num_of_links, phi_nominal, B_v=B_v, B_c=B_c
     )
-    phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=500, tol=1e-6)
+    phi_identified, b_v, b_c = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=500, tol=1e-5)
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_nominal, "Nominal")
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, cnt, phi_identified, "Identified", b_v, b_c, with_contact=True)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_nominal, "Nominal", cnt)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_identified, "Identified", cnt, b_v, b_c)
 
     plotter = PlotClass(phi_nominal)
     plotter.plot_mass(phi_identified, "Mass Comparison")
@@ -172,22 +167,25 @@ def parse_args():
     return p.parse_args()
 
 def main():
+    # Step 1: Parse arguments and set up paths
     args = parse_args()
     root = repo_root_from_this_file()
 
     data_dir = args.data_dir or os.path.join(root, "data")
     robot_paths = get_robot_paths(root, args.robot)
 
-    # Load data
-    q, dq, ddq, tau, cnt = load_data(data_dir, args.robot, args.filter)
-
-    # Build dynamics model
     # You only need to provide the mesh_dir if you want to use the LMI solver.
     # For the NLS solver, you can set mesh_dir=None.
     mesh_dir = robot_paths["mesh_dir"] if args.solver == "lmi" else None
+
+    # Step 2: Load and optionally filter data
+    q, dq, ddq, tau, cnt = load_data(data_dir, args.robot, args.filter)
+    
+    # Step 3: Build dynamics model of the robot.
+    # This is needed to compute the regressor matrix and the friction regressors.
     quad_dyn = QuadrupedDynamics(robot_paths["urdf"], robot_paths["config"], mesh_dir)
 
-    # Solve
+    # Step 4: Solve for inertial parameters using the selected solver
     if args.solver == "lmi":
         solve_lmi(q, dq, ddq, tau, cnt, quad_dyn)
     elif args.solver == "nls":
