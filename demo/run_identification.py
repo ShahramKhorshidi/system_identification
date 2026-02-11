@@ -83,6 +83,7 @@ def get_robot_paths(root, robot):
             "config": os.path.join(root, "files", "spot_description", "spot_config.yaml"),
             "mesh_dir": os.path.join(root, "files", "spot_description", "meshes", "base", "visual"),
         },
+        # Add more robots here as you extend the framework
         # "go1": {...},
         # "anymal": {...},
     }
@@ -125,6 +126,13 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
 def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     num_of_links = quad_dyn.get_num_links()
     phi_nominal = quad_dyn.get_phi_nominal()
+    J = np.random.rand(4, 4) * 0.0001
+    J = J @ J.T
+    m = 16
+    h = J[0:3, 3]
+    I_bar = (np.trace(J[0:3, 0:3]) * np.eye(3) - J[0:3, 0:3])
+    Ixx, Ixy, Iyy, Ixz, Iyz, Izz = I_bar[0,0], I_bar[0,1], I_bar[1,1], I_bar[0,2], I_bar[1,2], I_bar[2,2]
+    phi = np.hstack((m, h, Ixx, Ixy, Iyy, Ixz, Iyz, Izz))
 
     Y_proj, tau_proj = get_projected_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
     B_v_proj, B_c_proj = get_projected_friction_regressors(q, dq, ddq, cnt, quad_dyn)
@@ -137,7 +145,7 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     solver = NonlinearLeastSquares(
         Y_proj, tau_proj, num_of_links, phi_nominal, B_v=B_v_proj, B_c=B_c_proj
     )
-    phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=100, tol=1e-5)
+    phi_identified, b_v, b_c, _, _ = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=500, tol=1e-6)
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
