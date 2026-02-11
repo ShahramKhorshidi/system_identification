@@ -1,4 +1,3 @@
-import os
 import yaml
 import trimesh
 import numpy as np
@@ -570,7 +569,7 @@ class RigidBodyDynamics(ABC):
         return B_v, B_c
     
     # -------------------- Debugging and Visualization -------------------- #
-    def print_tau_prediction_rmse(self, q, dq, ddq, torque, cnt, phi, param_name, b_v=None, b_c=None, with_contact=True):
+    def print_tau_prediction_rmse(self, q, dq, ddq, torque, phi, param_name, cnt=None, b_v=None, b_c=None):
         # Shows RMSE of predicted torques based on phi parameters
         tau_pred = []
         tau_meas = []
@@ -578,7 +577,7 @@ class RigidBodyDynamics(ABC):
         for i in range(q.shape[1]):
             self.update_fk(q[:, i], dq[:, i], ddq[:, i])
             Y = pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q[:, i], dq[:, i], ddq[:, i])
-            if with_contact:
+            if cnt is not None:
                 P = self.get_null_space_proj(cnt[:, i])
             else:
                 P = np.eye(self.nv)
@@ -589,8 +588,8 @@ class RigidBodyDynamics(ABC):
             else: 
                 tau_prediction = P @ (Y @ phi)
             
-            tau_pred.append(tau_prediction[6:])
-            tau_meas.append((P @ self.S.T @ torque[:, i])[6:])
+            tau_pred.append(tau_prediction[self.base_dof:])
+            tau_meas.append((P @ self.S.T @ torque[:, i])[self.base_dof:])
         tau_pred = np.vstack(tau_pred)
         tau_meas = np.vstack(tau_meas)
         

@@ -452,10 +452,9 @@ class NonlinearLeastSquares():
             b_hat = self._exp_safe(eta)
             b_v = b_hat[:self.num_joints]
             b_c = b_hat[self.num_joints:]
-            if verbose:
-                print(f"[GN-exp] done in {dt:.2f}s, final cost={cost_prev:.6e}")
-            return phi_hat, b_v, b_c, theta, eta
         else:
-            if verbose:
+            b_v = b_c = None
+        if verbose:
+                print("\n", "-"*20, "Summary", "-"*20)
                 print(f"[GN-exp] done in {dt:.2f}s, final cost={cost_prev:.6e}")
-            return phi_hat, None, None, theta, None
+        return phi_hat, b_v, b_c
