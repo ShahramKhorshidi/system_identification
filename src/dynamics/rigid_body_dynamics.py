@@ -486,12 +486,8 @@ class RigidBodyDynamics(ABC):
         eigval_I_bar = np.zeros(self.num_links)
         eigval_I = np.zeros(self.num_links)      # Spatial body inertia
         eigval_J = np.zeros(self.num_links)      # Pseudo inertia
-
-        # Only allocate if ellipsoids exist
         trace_JQ = None
-        if self.bounding_ellipsoids is not None:
-            trace_JQ = np.zeros(self.num_links)
-
+        
         for idx in range(self.num_links):
             j = idx * 10
             m, h_x, h_y, h_z, I_xx, I_xy, I_yy, I_xz, I_yz, I_zz = phi[j: j+10]
@@ -520,6 +516,7 @@ class RigidBodyDynamics(ABC):
 
             # Bounding ellipsoid constraint
             if self.bounding_ellipsoids is not None:
+                trace_JQ = np.zeros(self.num_links)
                 ellipsoid = self.bounding_ellipsoids[idx]
                 semi_axes = ellipsoid["semi_axes"]
                 center = ellipsoid["center"]
