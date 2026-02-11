@@ -23,7 +23,7 @@ class NonlinearLeastSquares():
         phi_nominal: np.ndarray,
         B_v: np.ndarray = None,
         B_c: np.ndarray = None,
-        exp_clip: float = 1000.0, # prevents overflow in exp()
+        exp_clip: float = 1e12, # prevents overflow in exp()
     ):
         # Dimensions
         self.num_links = int(num_links)
