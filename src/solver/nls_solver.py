@@ -139,7 +139,7 @@ class NonlinearLeastSquares():
         """
         M = np.zeros((self.num_inertial_params, self.num_inertial_params), dtype=np.float64)
         P = self._construct_pseudo_inertia_matrix(phi_prior_link)
-        P_inv = np.linalg.inv(P)
+        P_inv = np.linalg.solve(P, np.eye(4))
 
         for i in range(10):
             v_i = np.zeros(10)

@@ -20,7 +20,7 @@ class PlotClass():
         bar_width = 0.35  # Width of the bars
         index = np.arange(len(link_indices))
 
-        bar1 = ax.bar(index, masses_prior, bar_width, label='Actual Mass')
+        bar1 = ax.bar(index, masses_prior, bar_width, label='Nominal Mass')
         bar2 = ax.bar(index + bar_width, masses_calculated, bar_width, label='Identified Mass')
 
         # Adding labels, title and legend
@@ -64,7 +64,7 @@ class PlotClass():
         plt.get_current_fig_manager().set_window_title(title)
         
         # Plot h_x
-        axs[0].bar(index - bar_width/2, h_x_actual, bar_width, label='Actual h_x')
+        axs[0].bar(index - bar_width/2, h_x_actual, bar_width, label='Nominal h_x')
         axs[0].bar(index + bar_width/2, h_x_predicted, bar_width, label='Identified h_x')
         axs[0].set_xticks(index)
         axs[0].set_xticklabels(range(num_links))
@@ -72,7 +72,7 @@ class PlotClass():
         axs[0].legend()
 
         # Plot x_y
-        axs[1].bar(index - bar_width/2, h_y_actual, bar_width, label='Actual h_y')
+        axs[1].bar(index - bar_width/2, h_y_actual, bar_width, label='Nominal h_y')
         axs[1].bar(index + bar_width/2, h_y_predicted, bar_width, label='Identified h_h')
         axs[1].set_xticks(index)
         axs[1].set_xticklabels(range(num_links))
@@ -80,7 +80,7 @@ class PlotClass():
         axs[1].legend()
 
         # Plot h_z
-        axs[2].bar(index - bar_width/2, h_z_actual, bar_width, label='Actual h_z')
+        axs[2].bar(index - bar_width/2, h_z_actual, bar_width, label='Nominal h_z')
         axs[2].bar(index + bar_width/2, h_z_predicted, bar_width, label='Identified h_z')
         axs[2].set_xticks(index)
         axs[2].set_xticklabels(range(num_links))
@@ -132,7 +132,7 @@ class PlotClass():
         plt.get_current_fig_manager().set_window_title(title)
         
         # Plot I_xx
-        axs[0].bar(index - bar_width/2, I_xx_actual, bar_width, label='Actual I_xx')
+        axs[0].bar(index - bar_width/2, I_xx_actual, bar_width, label='Nominal I_xx')
         axs[0].bar(index + bar_width/2, I_xx_predicted, bar_width, label='Identified I_xx')
         # axs[0].set_xlabel('Link')
         # axs[0].set_ylabel('Values')
@@ -143,7 +143,7 @@ class PlotClass():
         axs[0].legend()
 
         # Plot I_xy
-        axs[1].bar(index - bar_width/2, I_xy_actual, bar_width, label='Actual I_xy')
+        axs[1].bar(index - bar_width/2, I_xy_actual, bar_width, label='Nominal I_xy')
         axs[1].bar(index + bar_width/2, I_xy_predicted, bar_width, label='Identified I_xy')
         axs[1].set_xticks(index)
         axs[1].set_xticklabels(range(num_links))
@@ -151,7 +151,7 @@ class PlotClass():
         axs[1].legend()
 
         # Plot I_xz
-        axs[2].bar(index - bar_width/2, I_xz_actual, bar_width, label='Actual I_xz')
+        axs[2].bar(index - bar_width/2, I_xz_actual, bar_width, label='Nominal I_xz')
         axs[2].bar(index + bar_width/2, I_xz_predicted, bar_width, label='Identified I_xz')
         axs[2].set_xticks(index)
         axs[2].set_xticklabels(range(num_links))
@@ -164,7 +164,7 @@ class PlotClass():
         plt.get_current_fig_manager().set_window_title(title)
         
         # Plot I_yy
-        axs2[0].bar(index - bar_width/2, I_yy_actual, bar_width, label='Actual I_yy')
+        axs2[0].bar(index - bar_width/2, I_yy_actual, bar_width, label='Nominal I_yy')
         axs2[0].bar(index + bar_width/2, I_yy_predicted, bar_width, label='Identified I_yy')
         axs2[0].set_xticks(index)
         axs2[0].set_xticklabels(range(num_links))
@@ -172,7 +172,7 @@ class PlotClass():
         axs2[0].legend()
 
         # Plot I_yz
-        axs2[1].bar(index - bar_width/2, I_yz_actual, bar_width, label='Actual I_yz')
+        axs2[1].bar(index - bar_width/2, I_yz_actual, bar_width, label='Nominal I_yz')
         axs2[1].bar(index + bar_width/2, I_yz_predicted, bar_width, label='Identified I_yz')
         axs2[1].set_xticks(index)
         axs2[1].set_xticklabels(range(num_links))
@@ -180,7 +180,7 @@ class PlotClass():
         axs2[1].legend()
 
         # Plot I_zz
-        axs2[2].bar(index - bar_width/2, I_zz_actual, bar_width, label='Actual I_zz')
+        axs2[2].bar(index - bar_width/2, I_zz_actual, bar_width, label='Nominal I_zz')
         axs2[2].bar(index + bar_width/2, I_zz_predicted, bar_width, label='Identified I_zz')
         axs2[2].set_xticks(index)
         axs2[2].set_xticklabels(range(num_links))

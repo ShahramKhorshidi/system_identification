@@ -88,7 +88,7 @@ class LMISolver():
         # Returns the approximation of Riemannian distance metric (M:10x10) as a numpy array
         M = np.zeros((self._num_inertial_params, self._num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
-        P_inv = np.linalg.inv(P)
+        P_inv = np.linalg.solve(P, np.eye(4))
         
         for i in range(10):
             for j in range(10):
