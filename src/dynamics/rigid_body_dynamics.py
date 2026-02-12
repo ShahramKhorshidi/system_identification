@@ -83,7 +83,6 @@ class RigidBodyDynamics(ABC):
             self._compute_bounding_ellipsoids()
         self._init_motion_subspace_dict()
         self._compute_phi_nom_pin()
-        self._init_com_frames()
         if info:
             self._show_kinematic_tree()
 
@@ -127,36 +126,6 @@ class RigidBodyDynamics(ABC):
             else:
                 # Extend here for other joint types (spherical, planar, etc.)
                 raise NotImplementedError(f"Joint type {joint_type} not handled in S_i.")
-
-    def _init_com_frames(self):
-        """
-        For each joint j, create a Pinocchio frame located at the link's COM
-        (given by model.inertias[j].lever) and store its frame id.
-        """
-        self.com_frame_ids = []
-
-        for j in range(1, self.rmodel.njoints):
-            joint_name = self.rmodel.names[j]
-            inertia = self.rmodel.inertias[j]
-            com_offset = inertia.lever.copy()  # 3D vector in joint frame
-
-            # Placement of COM relative to joint frame: rotation=I, translation=com_offset
-            placement = pin.SE3(np.eye(3), com_offset)
-
-            # We attach the frame to joint j, and choose the joint's frame as parent frame.
-            # parentFrame = frame of the joint itself:
-            parent_frame_id = self.rmodel.getFrameId(joint_name)
-
-            frame_name = joint_name + "_COM"
-            frame = pin.Frame(
-                frame_name,
-                j,                # parentJoint
-                parent_frame_id,  # parentFrame
-                placement,
-                pin.BODY
-            )
-            fid = self.rmodel.addFrame(frame)
-            self.com_frame_ids.append(fid)
 
     def _compute_phi_nom_pin(self):
         # Compute the nominal inertial parameters using Pinocchio's internal representation
@@ -374,26 +343,6 @@ class RigidBodyDynamics(ABC):
                 cur = parent_id
                 parent_id = self.rmodel.parents[cur]
         return self.Y
-    
-    def _compute_tau_nom(
-        self,
-        q: np.ndarray,
-        dq: np.ndarray,
-        ddq: np.ndarray,
-        est_link_id: int = None
-    ) -> np.ndarray:
-        """
-        Returns the nominal joint torque vector assuming zero inertials for the estimated link.
-        """
-        Y_full = pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq, ddq)
-        phi_nom = self.phi_nom.copy()
-        if est_link_id is not None:
-            if est_link_id < 0 or est_link_id >= self.num_links:
-                raise ValueError(f"est_link_id {est_link_id} is out of range [0, {self.num_links-1}]")
-            i = 10 * est_link_id
-            phi_nom[i: i+10] = 0.0
-        tau_nom = Y_full @ phi_nom
-        return tau_nom
     
     # -------------------- Momentum_based Regressor -------------------- #
     # TODO: Need to add Momentum based regressor, so we avoid ddq measurements
