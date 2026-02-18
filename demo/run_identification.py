@@ -41,6 +41,7 @@ def load_data(path, robot_name, filter_type):
     return robot_q, robot_dq, robot_ddq, robot_tau, robot_contact
 
 def get_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
+    # Compute the regressor matrix Y and the torque vector Tau for each time step and stack them.
     Y = []
     Tau = []
     for i in range(q.shape[1]):
@@ -55,6 +56,7 @@ def get_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     return Y, Tau
 
 def get_friction_regressors(q, dq, ddq, cnt, quad_dyn):
+    # Compute the friction regressor matrices for viscous and Coulomb friction, and stack them.
     B_v = []
     B_c = []
     for i in range(q.shape[1]):
@@ -98,10 +100,12 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     phi_nominal = quad_dyn.get_phi_nominal()
     bounding_ellipsoids = quad_dyn.get_bounding_ellipsoids()
 
+    # Compute the regressor matrix Y, the torque vector Tau, 
+    # and the friction regressors B_v and B_c for all time steps.
     Y, Torque = get_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
     B_v, B_c = get_friction_regressors(q, dq, ddq, cnt, quad_dyn)
 
-    # Stack data into big matrices for the solver
+    # Convert the stacked lists into numpy matrices for the solver
     Y = np.vstack(Y)
     Torque = np.hstack(Torque)
     B_v = np.vstack(B_v)
@@ -110,7 +114,7 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     solver = LMISolver(
         Y, Torque, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c
     )
-    phi_identified, b_v, b_c = solver.solve_fully_consistent()
+    phi_identified, b_v, b_c = solver.solve_fully_consistent(lambda_reg=1e-4, tol=1e-8, max_iters=1000)
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
@@ -128,10 +132,12 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     num_of_links = quad_dyn.get_num_links()
     phi_nominal = quad_dyn.get_phi_nominal()
 
+    # Compute the regressor matrix Y, the torque vector Tau, 
+    # and the friction regressors B_v and B_c for all time steps.
     Y, Torque = get_y_tau(q, dq, ddq, tau, cnt, quad_dyn)
     B_v, B_c = get_friction_regressors(q, dq, ddq, cnt, quad_dyn)
 
-    # Stack data into big matrices for the solver
+    # Convert the stacked lists into numpy matrices for the solver
     Y = np.vstack(Y)
     Torque = np.hstack(Torque)
     B_v = np.vstack(B_v)
@@ -140,7 +146,7 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     solver = NonlinearLeastSquares(
         Y, Torque, num_of_links, phi_nominal, B_v=B_v, B_c=B_c
     )
-    phi_identified, b_v, b_c = solver.solve_gn_exp(lambda_reg=1e-4, max_iters=500, tol=1e-5)
+    phi_identified, b_v, b_c = solver.solve_gn_exp(lambda_reg=1e-7, max_iters=500, tol=1e-7)
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
