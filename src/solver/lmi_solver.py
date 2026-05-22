@@ -151,12 +151,12 @@ class LMISolver():
             # Compute pseudo inertia matrix (J:4x4) and add the constraint
             J = self._construct_pseudo_inertia_matrix(phi_idx)
             epsilon = 1e-6
-            J_reg = J + epsilon * cp.Constant(np.eye(J.shape[0])) # Regularize to ensure J is strictly positive definite
+            J_reg = J - epsilon * cp.Constant(np.eye(J.shape[0])) # Regularize to ensure J is strictly positive definite
             self._constraints.append(J_reg >> 0)
             
             # Compute CoM matrix (com:4x4) and add the constraint
             com = self._construct_com_constraint_matrix(phi_idx, ellipsoid_params_idx['semi_axes'], ellipsoid_params_idx['center'])
-            com_reg = com + epsilon * cp.Constant(np.eye(com.shape[0]))
+            com_reg = com - epsilon1 * cp.Constant(np.eye(com.shape[0]))
             self._constraints.append(com_reg >> 0)
             
             # Compute ellipsoid matrix (Q:4x4) and add the density realizability constraint
