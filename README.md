@@ -16,7 +16,6 @@ The codebase includes **two complementary solvers**:
        alt="Physically-Consistent whole-body inertial parameter identification"
        width="450">
 </p>
-<img width="725" height="281" alt="Screenshot 2026-10-14 212403" src="https://github.com/user-attachments/assets/b7bd8f82-f9d1-430f-af62-9fab5a0187c4" />
 
 ---
 
