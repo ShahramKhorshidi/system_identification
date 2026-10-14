@@ -14,7 +14,7 @@ The codebase includes **two complementary solvers**:
 <p align="center">
   <img src="https://github.com/user-attachments/assets/b7bd8f82-f9d1-430f-af62-9fab5a0187c4"
        alt="Physically-Consistent whole-body inertial parameter identification"
-       width="450">
+       width="550">
 </p>
 
 ---
