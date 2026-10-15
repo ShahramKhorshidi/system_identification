@@ -1,0 +1,22 @@
+robot:
+  name: "solo12"
+  mass: 2.501304 # Kg
+  end_effectors_frame_names:
+    - "FL_FOOT"
+    - "FR_FOOT"
+    - "HL_FOOT"
+    - "HR_FOOT"
+  link_names:
+    - "base_link"
+    - "FL_SHOULDER"
+    - "FL_UPPER_LEG"
+    - "FL_LOWER_LEG"
+    - "FR_SHOULDER"
+    - "FR_UPPER_LEG"
+    - "FR_LOWER_LEG"
+    - "HL_SHOULDER"
+    - "HL_UPPER_LEG"
+    - "HL_LOWER_LEG"
+    - "HR_SHOULDER"
+    - "HR_UPPER_LEG"
+    - "HR_LOWER_LEG"
