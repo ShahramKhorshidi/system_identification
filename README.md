@@ -11,6 +11,12 @@ The codebase includes **two complementary solvers**:
 - **(2) Nonlinear least-squares (NLS) with log-Cholesky parameterization**  
   A nonlinear formulation that enforces physical consistency through a **log-Cholesky parameterization** of inertia-related matrices, enabling unconstrained optimization while maintaining valid inertial quantities by construction.
 
+<p align="center">
+  <img src="https://github.com/user-attachments/assets/b7bd8f82-f9d1-430f-af62-9fab5a0187c4"
+       alt="Physically-Consistent whole-body inertial parameter identification"
+       width="550">
+</p>
+
 ---
 
 ## Key features
@@ -139,3 +145,4 @@ If you use this repository in an academic work, please cite the following paper:
   year={2025}
 }
 ```
+S. Khorshidi, M. Dawood, B. Nederkorn, M. Bennewitz, M. Khadiv, "Physically-Consistent Parameter Identification of Robots in Contact," IEEE ICRA, 2025. [arXiv:2409.09850](https://arxiv.org/pdf/2409.09850), [https://doi.org/10.1109/MITS.2010.939925](https://doi.org/10.1109/ICRA55743.2025.11128710)
