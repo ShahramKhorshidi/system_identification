@@ -20,25 +20,33 @@ class LMISolver():
             B_v: np.ndarray = None,
             B_c: np.ndarray = None
         ):
-        self._Y = regressor
-        self._tau = tau_vec
-        self._nx = self._Y.shape[1]
-        self._num_samples = self._Y.shape[0]
-        self._num_links = num_links
-        self._num_inertial_params = self._Y.shape[1] // self._num_links
-        self._phi_prior = phi_nominal  # Prior inertial parameters
+        # Dimensions
+        self.num_links = int(num_links)
+        self.num_inertial_params = 10 # per-link
+        self.nx_phi = self.num_links * self.num_inertial_params
+        self.num_samples = regressor.shape[0]
+
+        Y = np.asarray(regressor, dtype=np.float64)
+        tau = np.asarray(tau_vec, dtype=np.float64).reshape(-1)
+        assert Y.shape[1] == self.nx_phi, f"Y has {Y.shape[1]} cols, expected {self.nx_phi}"
+        assert Y.shape[0] == tau.shape[0], "Y rows must match tau length"
+        assert phi_nominal.shape[0] == self.nx_phi, "phi_nominal must be 10*num_links"
+
+        self.Y = np.ascontiguousarray(Y)
+        self.tau = np.ascontiguousarray(tau)
+        self.phi_prior = np.ascontiguousarray(np.asarray(phi_nominal, dtype=np.float64).copy())
         self.total_mass = total_mass
-        self._bounding_ellipsoids = bounding_ellipsoids
+        self.bounding_ellipsoids = bounding_ellipsoids
         
         # Initialize optimization variables and problem to use solvers from cp
-        self._phi = cp.Variable(self._nx, value=phi_nominal)
-        self._identify_fric = (B_v is not None) and (B_c is not None)
-        if self._identify_fric:
-            self._B_v = B_v
-            self._B_c = B_c
+        self.phi = cp.Variable(self.nx_phi, value=phi_nominal)
+        self.identify_fric = (B_v is not None) and (B_c is not None)
+        if self.identify_fric:
+            self.B_v = B_v
+            self.B_c = B_c
             self.num_joints = B_v.shape[1] # number of actuated joints
-            self._b_v = cp.Variable(self.num_joints) # Viscous friction coefficient (Nm / (rad/s))
-            self._b_c = cp.Variable(self.num_joints) # Coulomb friction coefficient (Nm)
+            self.b_v = cp.Variable(self.num_joints) # Viscous friction coefficient (Nm / (rad/s))
+            self.b_c = cp.Variable(self.num_joints) # Coulomb friction coefficient (Nm)
         self._objective = None
         self._constraints = []
         self._problem = None
@@ -86,7 +94,7 @@ class LMISolver():
     
     def _pullback_metric(self, phi: np.ndarray) -> np.ndarray:
         # Returns the approximation of Riemannian distance metric (M:10x10) as a numpy array
-        M = np.zeros((self._num_inertial_params, self._num_inertial_params))
+        M = np.zeros((self.num_inertial_params, self.num_inertial_params))
         P = self._construct_pseudo_inertia_matrix(phi).value
         P_inv = np.linalg.solve(P, np.eye(4))
         
@@ -117,10 +125,10 @@ class LMISolver():
         """
         Solve llsq using Singular Value Decomposition (SVD).
         """
-        U, Sigma, VT = np.linalg.svd(self._Y, full_matrices=False)
+        U, Sigma, VT = np.linalg.svd(self.Y, full_matrices=False)
         Sigma_inv = np.linalg.pinv(np.diag(Sigma))
         A_psudo = VT.T @ Sigma_inv @ U.T
-        return A_psudo@self._tau
+        return A_psudo@self.tau
     
     def solve_fully_consistent(
             self, 
@@ -137,12 +145,12 @@ class LMISolver():
         self._constraints = []
         
         # Iterating over the robot links
-        for idx in range(0, self._num_links):
+        for idx in range(0, self.num_links):
             # Extracting the inertial parameters of the link idx
-            j = idx * self._num_inertial_params
-            phi_idx = self._phi[j: j+self._num_inertial_params]
-            phi_prior_idx = self._phi_prior[j: j+self._num_inertial_params]
-            ellipsoid_params_idx = self._bounding_ellipsoids[idx]
+            j = idx * self.num_inertial_params
+            phi_idx = self.phi[j: j+self.num_inertial_params]
+            phi_prior_idx = self.phi_prior[j: j+self.num_inertial_params]
+            ellipsoid_params_idx = self.bounding_ellipsoids[idx]
             
             # Mass constraint
             # self._constraints.append(phi_idx[0] >= 0)
@@ -181,21 +189,21 @@ class LMISolver():
         
         # Regularization based on Euclidean distance from phi_prior
         if reg_type=="euclidean":
-            phi_diff_all = self._phi - self._phi_prior
-            regularization_term = cp.quad_form(phi_diff_all, np.eye(self._nx))
+            phi_diff_all = self.phi - self.phi_prior
+            regularization_term = cp.quad_form(phi_diff_all, np.eye(self.nx_phi))
         
         # Add the total mass constraint
         self._constraints.append(mass_sum == self.total_mass)
         
         # Add objective function and instantiate problem
-        if self._identify_fric:
-            self._constraints.append(self._b_v >= 0)
-            self._constraints.append(self._b_c >= 0)
-            error = self._Y @ self._phi + self._B_v @ self._b_v + self._B_c @ self._b_c - self._tau
+        if self.identify_fric:
+            self._constraints.append(self.b_v >= 0)
+            self._constraints.append(self.b_c >= 0)
+            error = self.Y @ self.phi + self.B_v @ self.b_v + self.B_c @ self.b_c - self.tau
         else:
-            error = self._Y @ self._phi - self._tau
+            error = self.Y @ self.phi - self.tau
         
-        self._objective = cp.Minimize( (1/2) * cp.sum_squares(error) / self._num_samples + lambda_reg * regularization_term)
+        self._objective = cp.Minimize( (1/2) * cp.sum_squares(error) / self.num_samples + lambda_reg * regularization_term)
         self._problem = cp.Problem(self._objective, self._constraints)
         
         # Ensure the problem is DCP compliant
@@ -222,12 +230,12 @@ class LMISolver():
             print("Number of iterations:", solver_info.num_iters)
             print("########################################")
             # Return the value of the decision variables
-            if self._identify_fric:
-                b_v = self._b_v.value
-                b_c = self._b_c.value
+            if self.identify_fric:
+                b_v = self.b_v.value
+                b_c = self.b_c.value
             else:
                 b_v = b_c = None
-            return self._phi.value, b_v, b_c
+            return self.phi.value, b_v, b_c
         else:
             print("The problem did not solve to optimality. Status:", self._problem.status)
             raise ValueError("The problem did not solve to optimality.")

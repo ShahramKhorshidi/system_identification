@@ -47,7 +47,7 @@ def get_y_tau(q, dq, ddq, torque, cnt, quad_dyn):
     for i in range(q.shape[1]):
         # Make sure to update the kinematics in the dynamics model at each time step
         quad_dyn.update_fk(q[:, i], dq[:, i], ddq[:, i])
-        y = quad_dyn.get_regressor_matrix(q[:, i], dq[:, i], ddq[:, i])
+        y = quad_dyn.get_classical_regressor(q[:, i], dq[:, i], ddq[:, i])
         # Here we project the regressor and torque into the null space of the contact constraints, 
         # If you use manipulator with no contact constraints, you should skip this projection.
         P = quad_dyn.get_null_space_proj(cnt[:, i])
@@ -114,7 +114,7 @@ def solve_lmi(q, dq, ddq, tau, cnt, quad_dyn):
     solver = LMISolver(
         Y, Torque, num_of_links, phi_nominal, total_mass, bounding_ellipsoids, B_v=B_v, B_c=B_c
     )
-    phi_identified, b_v, b_c = solver.solve_fully_consistent(lambda_reg=1e-4, tol=1e-8, max_iters=1000)
+    phi_identified, b_v, b_c = solver.solve_fully_consistent(lambda_reg=1e-4, tol=1e-5, max_iters=1000)
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
@@ -146,13 +146,17 @@ def solve_nls(q, dq, ddq, tau, cnt, quad_dyn):
     solver = NonlinearLeastSquares(
         Y, Torque, num_of_links, phi_nominal, B_v=B_v, B_c=B_c
     )
-    phi_identified, b_v, b_c = solver.solve_gn_exp(lambda_reg=1e-7, max_iters=500, tol=1e-7)
+    phi_identified, b_v, b_c = solver.solve_gn_exp(lambda_reg=1e-2, max_iters=500, tol=1e-5)
+
+    U_pred = Y @ phi_identified + B_v @ b_v + B_c @ b_c
+    err = U_pred - Torque
+    rmse_total = np.sqrt(np.mean(err**2))
 
     # Reporting and plotting
     quad_dyn.print_inertial_params(phi_nominal, phi_identified)
-    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_nominal, "Nominal", cnt)
+    quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_nominal, "Nominal", cnt, b_v, b_c)
     quad_dyn.print_tau_prediction_rmse(q, dq, ddq, tau, phi_identified, "Identified", cnt, b_v, b_c)
-
+    print(f"[Momentum NLS] RMSE in momentum regression domain: {rmse_total:.6e}")
     plotter = PlotClass(phi_nominal)
     plotter.plot_mass(phi_identified, "Mass Comparison")
     plotter.plot_inertia(phi_identified, "Inertia Comparison")

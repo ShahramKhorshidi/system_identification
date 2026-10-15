@@ -8,6 +8,29 @@ from urdf_parser_py.urdf import URDF, Box, Cylinder, Sphere, Mesh
 
 
 class RigidBodyDynamics(ABC):
+    """
+    Abstract base class for rigid body dynamics and regressors computation.
+    
+    - Rigid body dynamics:
+        M(q) ddq + C(q,dq) dq + g(q) = S.T (tau_m - tau_f) + J_c.T lambda_c
+        tau_f = diag(b_v) dq_j + diag(b_c) sign(dq_j), viscous and Coulomb frictions for actuated joints.
+        diag(b_v), diag(b_c) are the friction coefficient matrices (dim: joints_dof x joints_dof).
+        tau_m are the actuated joint torques, S is the selection matrix for actuated joints.
+        lambda_c is the vector of contact wrenches, J_c is the corresponding contact Jacobian.
+    
+    - Inertial parameters for each link with Pinocchio order:
+        phi_k = [m, h_x, h_y, h_z, Ixx, Ixy, Iyy, Ixz, Iyz, Izz]
+        phi_all = [phi_1, phi_2, ..., phi_nb] (size: 10*num_links)
+
+    - Classical regressor:
+        Y(q, dq, ddq) @ phi_all = M(q) ddq + C(q,dq) dq + g(q) = tau_rnea
+    
+    - Momentum-based regressors:
+        Define generalized momentum, p = M(q) dq, then:
+        p  = W2(q,dq) @ phi_all
+        dp = W1(q,dq) @ phi_all + S.T (tau_m - tau_f) + J_c.T lambda_c
+        W1(q, dq) = C.T dq - g(q)
+    """
     def __init__(
             self,
             urdf_file: str,
@@ -58,12 +81,12 @@ class RigidBodyDynamics(ABC):
         ]
         self.nb_ee = len(self.end_eff_frame_names)
         
-        # Initialize the regressor matrix with proper dimension
-        # Inertial parameters for each link with Pinocchio order:
-        # phi = [m, h_x, h_y, h_z, Ixx, Ixy, Iyy, Ixz, Iyz, Izz]
+        # Initialize the regressor matrices with proper dimension
         self.phi_dim = 10
         self.num_links = self.rmodel.njoints - 1
         self.Y = np.zeros((self.nv, self.phi_dim * self.num_links), dtype=np.float64)
+        self.W1 = np.zeros((self.nv, self.phi_dim * self.num_links), dtype=np.float64)
+        self.W2 = np.zeros((self.nv, self.phi_dim * self.num_links), dtype=np.float64)
 
         # Initialize the friction regressors
         self.B_v = np.eye(self.joints_dof) # Viscous friction
@@ -239,6 +262,16 @@ class RigidBodyDynamics(ABC):
         p = np.eye((self.nv)) - pinv(J_c) @ J_c
         return p
     
+    def _compute_spatial_vel_acc(self) -> tuple:
+        # Returns dictionaries of spatial velocity and acceleration of all joints.
+        # Pinocchio stores in Featherstone order [w; v] for Motion.
+        spatial_vel = dict()
+        spatial_acc = dict()
+        spatial_vel = {i: self.rdata.v[i] for i in range(1, self.rmodel.njoints)}
+        spatial_acc = {i: self.rdata.a[i] for i in range(1, self.rmodel.njoints)}
+        return spatial_vel, spatial_acc
+
+    # -------------------- Classical Regressor -------------------- #
     def _braket_operator(self, vec: np.ndarray) -> np.ndarray:
         # I_bar.(omega) = bracekt(omega).[Ixx, Ixy, Iyy, Ixz, Iyz, Izz].T
         x, y, z = vec
@@ -248,15 +281,6 @@ class RigidBodyDynamics(ABC):
             [0, 0, 0, x, y, z]
         ], dtype=np.float64)
     
-    def _compute_spatial_vel_acc(self) -> tuple:
-        # Returns dictionaries of spatial velocity and acceleration of all joints
-        spatial_vel = dict()
-        spatial_acc = dict()
-        spatial_vel = {i: self.rdata.v[i] for i in range(1, self.rmodel.njoints)}
-        spatial_acc = {i: self.rdata.a[i] for i in range(1, self.rmodel.njoints)}
-        return spatial_vel, spatial_acc
-
-    # -------------------- Classical Regressor -------------------- #
     def _compute_Y_i(self, v_i: pin.Motion, a_i: pin.Motion, R_i: np.ndarray) -> np.ndarray:
         # Returns the regressor matrix, (dim:6x10), for an individual link
         # v, a are spatial velocity and acceleration
@@ -277,9 +301,9 @@ class RigidBodyDynamics(ABC):
         Y_i[3:6, 1:4] = pin.skew(alpha) + pin.skew(omega) @ pin.skew(omega)
         return Y_i
 
-    def _compute_regressor_matrix(self) -> np.ndarray:
+    def _compute_classical_regressor(self) -> np.ndarray:
         """
-        Returns the classical regressor matrix
+        Computes the classical regressor matrix, dim: (nv, 10*num_links), such that:
         Y(q, dq, ddq) @ Phi_all_link = tau_rnea
         """
         # Reset Y for this call
@@ -330,6 +354,7 @@ class RigidBodyDynamics(ABC):
                 X_p_c_star = X_p_c.toDualActionMatrix()
                 
                 # Express current block in the parent frame
+                # Note: Pinocchio's dual action matrix assumes [f; n] order, but we use [n; f], so we swap before and after.
                 Y_up = self._force_swap @ (X_p_c_star @ (self._force_swap @ Y_up))
                 
                 # Project onto parent's joint subspace row
@@ -347,7 +372,6 @@ class RigidBodyDynamics(ABC):
                 # climb one level
                 cur = parent_id
                 parent_id = self.rmodel.parents[cur]
-        return self.Y
     
     # -------------------- Momentum_based Regressor -------------------- #
     def _crm(self, v6: np.ndarray) -> np.ndarray:
@@ -367,7 +391,7 @@ class RigidBodyDynamics(ABC):
 
     def _crf(self, v6: np.ndarray) -> np.ndarray:
         """
-        Spatial cross-product operator for force (dual) vectors (Pinocchio order [n; f]).
+        Spatial cross-product operator for force (dual) vectors (our convention [n; f]).
         Returns 6x6 matrix such that (v x*) * f = v.cross(f) for forces.
         In Featherstone: crf(v) = -crm(v).T
         """
@@ -379,50 +403,30 @@ class RigidBodyDynamics(ABC):
         h_i = I_i * v_i = Y_m(v_i) * phi_i
         with phi_i in Pinocchio order [m, hx, hy, hz, Ixx, Ixy, Iyy, Ixz, Iyz, Izz].
 
-        Convention: motion is [w; v], force/momentum is [n; f] (your convention).
+        Convention: motion is [w; v], force/momentum is [n; f].
         """
         omega = np.asarray(v_i.angular).reshape(3)
         vlin  = np.asarray(v_i.linear).reshape(3)
-
         Y = np.zeros((6, 10), dtype=np.float64)
 
         # angular momentum: n = Ibar*omega + h x vlin = Ibar*omega - skew(vlin)*h
-        Y[0:3, 1:4]  = -pin.skew(vlin)                 # multiplies h
-        Y[0:3, 4:10] = self._braket_operator(omega)    # multiplies inertia params
+        Y[0:3, 1:4]  = -pin.skew(vlin)
+        Y[0:3, 4:10] = self._braket_operator(omega)
 
         # linear momentum: f = m*vlin + omega x h = vlin*m + skew(omega)*h
         Y[3:6, 0]    = vlin
         Y[3:6, 1:4]  = pin.skew(omega)
-
         return Y
-
-    def _Y_momentum_rate_local(self, v_i: pin.Motion, a_i: pin.Motion, R_i: np.ndarray) -> np.ndarray:
+    
+    def _Y_momentum_rate_local(self, v_i: pin.Motion, a_i: pin.Motion) -> np.ndarray:
         """
-        Local 6x10 regressor Y^(dot m)(v,a) such that:
-        dot(h_i) = I_i * a_i + v_i x* (I_i*v_i) = Y_dot_m(v_i, a_i)*phi_i
-
-        Gravity inclusion:
-        we subtract local gravity from the *linear* part of spatial acceleration used in Y_m(a).
-        This mirrors your classical regressor style (subtract g_local).
+        Gravity-free local momentum-rate regressor:
+        dot(h_i) = I_i*a_i + v_i x* (I_i*v_i) = Y_dot_m(v_i,a_i)*phi_i
         """
-        # Convert to numpy
         v6 = np.hstack([np.asarray(v_i.angular).reshape(3), np.asarray(v_i.linear).reshape(3)])
-
-        # Build an "effective acceleration" a_eff where linear part includes gravity
-        a_ang = np.asarray(a_i.angular).reshape(3)
-        a_lin = np.asarray(a_i.linear).reshape(3)
-
-        g_local = R_i.T @ self.g  # self.g is model gravity linear (world), convert to local
-        a_lin_eff = a_lin - g_local
-
-        a_eff = pin.Motion(a_ang, a_lin_eff)
-
-        # Y_m(a_eff) + crf(v)*Y_m(v)
-        Ym_a = self._Y_momentum_local(a_eff)
+        Ym_a = self._Y_momentum_local(a_i)
         Ym_v = self._Y_momentum_local(v_i)
-        crf_v = self._crf(v6)
-
-        return Ym_a + crf_v @ Ym_v
+        return Ym_a + self._crf(v6) @ Ym_v
 
     def _children_list(self) -> list[list[int]]:
         """Build children lists from Pinocchio parents array."""
@@ -433,85 +437,120 @@ class RigidBodyDynamics(ABC):
                 children[p].append(j)
         return children
 
-    def compute_W1_W2_momentum_recursive(self, q: np.ndarray, dq: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
-        """
-        Compute momentum-based regressors recursively, 
-        using Pinocchio forwardKinematics with ddq = 0 internally.
+    def _compute_W2_and_Cv_regressors(
+        self,
+        q: np.ndarray,
+        dq: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Return the generalized-momentum and ``C(q,dq)dq`` regressors.
 
-        W2(q,dq): nv x (10*num_links) such that p = W2 * phi
-        W1(q,dq): nv x (10*num_links) such that dot(p) = tau + W1 * phi
-                (rigid-body drift incl. gravity; friction handled separately)
+        ``W2 @ phi`` is ``M(q) @ dq``.  The second returned matrix is the
+        gravity-free inverse-dynamics regressor and therefore maps ``phi`` to
+        ``C(q,dq) @ dq``.  It is *not* the ``C(q,dq).T @ dq`` term needed by
+        the integral momentum equation.
         """
-        # 0) Make sure kinematics are updated with ddq=0 (momentum form avoids ddq measurement)
-        ddq0 = np.zeros(self.nv, dtype=np.float64)
+        # These are model evaluations, not measured accelerations.  Linearity
+        # of inverse dynamics gives
+        #
+        #   Y(q, 0, dq) - Y(q, 0, 0) = regressor(M(q)dq)
+        #   Y(q, dq, 0) - Y(q, 0, 0) = regressor(C(q,dq)dq).
+        #
+        # Using Pinocchio's compiled implementation is equivalent to the
+        # explicit spatial recursion above and is substantially faster online.
+        zero = np.zeros(self.nv, dtype=np.float64)
+        Wg = pin.computeJointTorqueRegressor(
+            self.rmodel,
+            self.rdata,
+            q,
+            zero,
+            zero,
+        ).copy()
+        W2 = (
+            pin.computeJointTorqueRegressor(
+                self.rmodel,
+                self.rdata,
+                q,
+                zero,
+                dq,
+            ).copy()
+            - Wg
+        )
+        W_Cv = (
+            pin.computeJointTorqueRegressor(
+                self.rmodel,
+                self.rdata,
+                q,
+                dq,
+                zero,
+            ).copy()
+            - Wg
+        )
+        return W2, W_Cv
+
+    def _compute_momentum_regressors(
+        self,
+        q: np.ndarray,
+        dq: np.ndarray,
+    ) -> tuple[np.ndarray, np.ndarray]:
+        """Compute the acceleration-free momentum regressors ``W1`` and ``W2``.
+
+        The convention is
+
+        ``p = M(q) dq = W2(q,dq) phi``
+
+        ``p_dot = tau_generalized + W1(q,dq) phi``
+
+        where ``W1 @ phi = C(q,dq).T @ dq - g(q)`` and generalized force may
+        include both actuation and contact forces.  Consequently, over an
+        interval ``[t0, t1]``:
+
+        ``integral(tau_generalized dt) = (Delta W2 - integral(W1 dt)) phi``.
+
+        The directional derivative below differentiates the analytical model
+        regressor with respect to configuration.  It does not differentiate a
+        measured position or velocity signal and therefore does not reintroduce
+        an acceleration measurement.
+        """
+        q = np.asarray(q, dtype=np.float64).reshape(-1)
+        dq = np.asarray(dq, dtype=np.float64).reshape(-1)
+        if q.size != self.nq:
+            raise ValueError(f"q has {q.size} elements, expected {self.nq}")
+        if dq.size != self.nv:
+            raise ValueError(f"dq has {dq.size} elements, expected {self.nv}")
+
+        W2, W_Cv = self._compute_W2_and_Cv_regressors(q, dq)
+
+        # M_dot(q,dq)dq is the directional derivative of M(q)dq along dq.
+        # W2 is linear in phi, so differentiating W2 gives its regressor for
+        # every link simultaneously.  Scale the step to keep the tangent-space
+        # perturbation small for arbitrary valid velocities.
+        direction_norm = np.linalg.norm(dq)
+        if direction_norm == 0.0:
+            W2_dot = np.zeros_like(W2)
+        else:
+            step = 3.0e-5 / max(1.0, direction_norm)
+            q_plus = pin.integrate(self.rmodel, q, step * dq)
+            q_minus = pin.integrate(self.rmodel, q, -step * dq)
+            W2_plus, _ = self._compute_W2_and_Cv_regressors(q_plus, dq)
+            W2_minus, _ = self._compute_W2_and_Cv_regressors(q_minus, dq)
+            W2_dot = (W2_plus - W2_minus) / (2.0 * step)
+
+        # M_dot = C + C.T, hence C.T*dq = M_dot*dq - C*dq.
+        W_CTv = W2_dot - W_Cv
+
+        # Gravity regressor: Wg @ phi = g(q).
+        dq0 = np.zeros(self.nv)
+        ddq0 = np.zeros(self.nv)
+        self.update_fk(q, dq0, ddq0)
+        Wg = pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq0, ddq0)
+
+        self.W1[:, :] = W_CTv - Wg
+        self.W2[:, :] = W2
+
+        # Leave Pinocchio data at the requested state for subsequent contact or
+        # frame-Jacobian calculations.
         self.update_fk(q, dq, ddq0)
-
-        Pdim = self.phi_dim * self.num_links
-
-        # 1) Get spatial velocities/accelerations from Pinocchio
-        #    Pinocchio stores in Featherstone order [w; v] for Motion, and rdata.a is spatial acceleration.
-        spatial_vel, spatial_acc = self._compute_spatial_vel_acc()
-
-        # 2) Children adjacency
-        children = self._children_list()
-
-        # 3) Subtree accumulators: 6 x (10*num_links) in each joint frame
-        H_sub = {i: np.zeros((6, Pdim), dtype=np.float64) for i in range(1, self.rmodel.njoints)}
-        D_sub = {i: np.zeros((6, Pdim), dtype=np.float64) for i in range(1, self.rmodel.njoints)}
-
-        # 4) Backward recursion over joints
-        for i in reversed(range(1, self.rmodel.njoints)):
-            col_start = 10 * (i - 1)
-            col_end   = col_start + 10
-
-            # local regressors for this link
-            R_i = self.rdata.oMi[i].rotation.copy()
-
-            Ym_i  = self._Y_momentum_local(spatial_vel[i])                        # 6x10
-            Ydm_i = self._Y_momentum_rate_local(spatial_vel[i], spatial_acc[i], R_i)  # 6x10
-
-            # place local block into full column space
-            H = np.zeros((6, Pdim), dtype=np.float64)
-            D = np.zeros((6, Pdim), dtype=np.float64)
-            H[:, col_start:col_end] = Ym_i
-            D[:, col_start:col_end] = Ydm_i
-
-            # add children contributions transformed into frame i
-            for c in children[i]:
-                # Transform from i to c: ^i X_c (motion transform)
-                X_i_c = self.rdata.oMi[i].inverse() * self.rdata.oMi[c]
-                X_i_c_star = X_i_c.toDualActionMatrix()
-
-                # Apply the same swap wrapping you used in classical propagation
-                H += self._force_swap @ (X_i_c_star @ (self._force_swap @ H_sub[c]))
-                D += self._force_swap @ (X_i_c_star @ (self._force_swap @ D_sub[c]))
-
-            H_sub[i] = H
-            D_sub[i] = D
-
-        # 5) Project subtree quantities to generalized coordinates
-        W2 = np.zeros((self.nv, Pdim), dtype=np.float64)
-        W1 = np.zeros((self.nv, Pdim), dtype=np.float64)
-
-        for i in range(1, self.rmodel.njoints):
-            S_i = self.motion_subspace[i]
-            if S_i.ndim == 1:
-                S_i = S_i.reshape(6, 1)
-
-            proj_W2_i = S_i.T @ H_sub[i]   # (dof_i x Pdim)
-            proj_W1_i = S_i.T @ D_sub[i]
-
-            # Put into correct rows
-            if self.floating_base and i == 1:
-                # free-flyer is 6 rows
-                W2[0:6, :] += proj_W2_i
-                W1[0:6, :] += proj_W1_i
-            else:
-                row_index = (6 + (i - 2)) if self.floating_base else (i - 1)
-                W2[row_index, :] += proj_W2_i.flatten()
-                W1[row_index, :] += proj_W1_i.flatten()
-
-        return W1, W2
+        return self.W1, self.W2
     
     # -------------------- API -------------------- #
     def update_fk(self, q: np.ndarray, dq: np.ndarray, ddq: np.ndarray):
@@ -653,9 +692,13 @@ class RigidBodyDynamics(ABC):
 
         return eigval_I_bar, eigval_I, eigval_J, trace_JQ
          
-    def get_regressor_matrix(self, q, dq, ddq):
+    def get_classical_regressor(self, q, dq, ddq):
         return pin.computeJointTorqueRegressor(self.rmodel, self.rdata, q, dq, ddq)
     
+    def get_momentum_regressors(self, q, dq):
+        self._compute_momentum_regressors(q, dq)
+        return self.W1.copy(), self.W2.copy()
+
     def get_null_space_proj(self, cnt_schedule: np.ndarray) -> np.ndarray:
         # Returns null space projector, dim(nv, nv)
         J_c = self._compute_J_c(cnt_schedule)
@@ -695,7 +738,7 @@ class RigidBodyDynamics(ABC):
                 P = np.eye(self.nv)
             if b_v is not None and b_c is not None:
                 tau_prediction = P @ (Y @ phi 
-                                - self.S.T @ (np.diag(b_v) @ dq[self.base_dof:, i] 
+                                + self.S.T @ (np.diag(b_v) @ dq[self.base_dof:, i] 
                                 + np.diag(b_c) @ np.sign(dq[self.base_dof:, i])))
             else: 
                 tau_prediction = P @ (Y @ phi)
