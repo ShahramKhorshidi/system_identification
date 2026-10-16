@@ -1,13 +1,20 @@
 import os
+import sys
 import argparse
 import numpy as np
+from pathlib import Path
+import matplotlib.pyplot as plt
 import scipy.signal as signal
 from scipy.signal import savgol_filter
+
+# Allow this file to be run directly from any working directory.
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(REPOSITORY_ROOT))
+from utils.plot_class import PlotClass
 from src.solver.lmi_solver import LMISolver
 from src.solver.nls_solver import NonlinearLeastSquares
 from src.dynamics.quadrupd_dynamics import QuadrupedDynamics
-from utils.plot_class import PlotClass
-import matplotlib.pyplot as plt
+
 
 def load_data(path, robot_name, filter_type):
     path = os.path.abspath(path) + os.sep
