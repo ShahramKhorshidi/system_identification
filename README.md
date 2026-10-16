@@ -53,15 +53,12 @@ conda env create -f environment.yml
 conda activate sys_idn
 ```
 
-### (3) Installing MOSEK (required for the LMI/SDP solver)
-The LMI solver relies on MOSEK as the SDP backend (via CVXPY). MOSEK requires (i) installing the Python package and (ii) installing a license.
+### (3) Configure MOSEK (required for the LMI/SDP solver)
+The LMI solver relies on MOSEK as the SDP backend through CVXPY. The MOSEK
+Python package is installed by `environment.yml`, but a valid MOSEK license is
+still required.
 
-### (i) Install the MOSEK Python package
-Recommended (Conda):
-```
-conda install -c mosek mosek
-```
-### (ii) Get a license (academic or trial)
+#### Get a license (academic or trial)
 Personal Academic [license](https://www.mosek.com/products/academic-licenses/)  is free for faculty/students/staff at degree-granting institutions (request must use an academic email).
 
 ---
