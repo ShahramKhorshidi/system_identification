@@ -133,7 +133,9 @@ python demo/run_identification.py --robot <robot_name> --solver <solver_name>
 
 ## Citation
 
-If you use this repository in an academic work, please cite the following paper:
+If you use this repository in an academic work, please cite the following paper: 
+[paper](https://arxiv.org/pdf/2409.09850),
+[doi](https://doi.org/10.1109/ICRA55743.2025.11128710)
 ```
 @inproceedings{khorshidi25icra,
   title={Physically-Consistent Parameter Identification of Robots in Contact}, 
@@ -142,4 +144,3 @@ If you use this repository in an academic work, please cite the following paper:
   year={2025}
 }
 ```
-S. Khorshidi, M. Dawood, B. Nederkorn, M. Bennewitz, M. Khadiv, "Physically-Consistent Parameter Identification of Robots in Contact," IEEE ICRA, 2025. [arXiv:2409.09850](https://arxiv.org/pdf/2409.09850), [https://doi.org/10.1109/MITS.2010.939925](https://doi.org/10.1109/ICRA55743.2025.11128710)
